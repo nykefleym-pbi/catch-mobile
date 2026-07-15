@@ -23,10 +23,12 @@ High-level system design. Detailed data structures are in
 | Maps | **Google Maps SDK** (via Flutter plugin) | Cozy map + exploration |
 | Camera | **Flutter camera plugin** | In-game capture |
 | On-device AI | **Google ML Kit** and/or **TensorFlow Lite** | "Is this a real cat?" + quality gate |
-| Companion generation | **Cloud image API** (e.g. OpenAI Images) or self-hosted pipeline | Behind our own Edge Function, never called directly from the client |
+| Companion generation | **Gemini 2.5 Flash Image** (AI Studio free tier) + `rembg`; Cloudflare Workers AI fallback | Behind our own Edge Function, never called directly from the client — [ADR 0001](../decisions/0001-image-generation.md) |
+| State management | **Riverpod** | Compile-safe, low-boilerplate, async-friendly — [ADR 0002](../decisions/0002-tech-stack-phase0.md) |
 | Animation | **Rive** (evaluate) or **Spine 2D / Live2D** | See note below |
 | Realtime | **Supabase Realtime** | Social, community goals, events (post-MVP) |
-| Analytics / crash | TBD (privacy-respecting) | Wired in Phase 0 |
+| Analytics / crash | **Sentry** (free tier) | Supabase-only stack, no Firebase — [ADR 0002](../decisions/0002-tech-stack-phase0.md) |
+| CI | **GitHub Actions** — `flutter analyze` + `flutter test` on PRs | Deliberately minimal for a side project |
 
 ### Animation note
 
@@ -95,9 +97,10 @@ generation-client wrapper).
 
 ## State management
 
-Choose one idiomatic Flutter approach (e.g. Riverpod or Bloc) in Phase 0 and apply
-it consistently. Decision deferred to implementation, but it should support
-testable, feature-scoped state.
+**Riverpod** ([ADR 0002](../decisions/0002-tech-stack-phase0.md)), applied
+consistently across feature modules. Chosen over Bloc for lower boilerplate and
+over plain `setState` for testable, feature-scoped, async-aware state — a good fit
+for the capture → generate → CatDex flows that are loading/error/data heavy.
 
 ## Offline & resilience
 

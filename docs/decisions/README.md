@@ -8,6 +8,7 @@ supersede the old ADR with a new one rather than rewriting history.
 | # | Decision | Status | Date |
 |---|----------|--------|------|
 | [0001](0001-image-generation.md) | Free-first image generation (Gemini AI Studio + rembg) & source-photo deletion | Accepted | 2026-07-15 |
+| [0002](0002-tech-stack-phase0.md) | Phase 0 tech: Riverpod, Sentry, minimal GitHub Actions CI | Accepted | 2026-07-15 |
 
 ## Format
 

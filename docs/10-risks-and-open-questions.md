@@ -116,8 +116,8 @@ the **decision** that must be made. Review this list at each phase gate in the
 
 - ~~v1 image-generation provider (R4).~~ ✅ Decided — [ADR 0001](decisions/0001-image-generation.md).
 - ~~Raw source-photo retention.~~ ✅ Decided — delete immediately after generation ([ADR 0001](decisions/0001-image-generation.md)).
+- ~~Flutter state-management library (Phase 0).~~ ✅ Decided — Riverpod ([ADR 0002](decisions/0002-tech-stack-phase0.md)).
+- ~~Analytics/crash provider (Phase 0).~~ ✅ Decided — Sentry + minimal event logging ([ADR 0002](decisions/0002-tech-stack-phase0.md)).
 - Animation runtime (R5).
-- Flutter state-management library (Phase 0).
-- Analytics/crash provider (privacy-respecting) (Phase 0).
 - Legal giving structure for donations (R10).
 - Exact child-safety compliance obligations per launch market (R7).
