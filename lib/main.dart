@@ -14,7 +14,9 @@ Future<void> main() async {
   if (Env.hasSupabase) {
     await Supabase.initialize(
       url: Env.supabaseUrl,
-      anonKey: Env.supabaseAnonKey,
+      // Supabase renamed the client-side key "anon" -> "publishable"; same value,
+      // safe to ship (RLS enforces access).
+      publishableKey: Env.supabaseAnonKey,
     );
   }
 
