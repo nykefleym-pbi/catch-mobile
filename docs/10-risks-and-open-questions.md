@@ -100,6 +100,12 @@ the **decision** that must be made. Review this list at each phase gate in the
   reconciliation, and platform-fee-aware accounting **before** any public claim.
   Treat percentages as targets to validate. See
   [Monetization & Impact](09-monetization-and-impact.md).
+- **Status:** ⏸ **Consciously deferred** to Phase 4 (maintainer decision,
+  2026-07-15) — not decided in this planning pass. The MVP ships with **no
+  monetization and no donation claims**, so nothing is blocked by leaving this open;
+  candidate structures (platform-as-middleman e.g. Benevity / PayPal Giving Fund /
+  Every.org; percentage-of-profits pledge; own nonprofit) are revisited before any
+  paid feature or public giving claim ships.
 - **Owner:** legal + finance + ops.
 
 ### R11 — Real-world Guardian Mission safety & verification
@@ -125,4 +131,4 @@ the **decision** that must be made. Review this list at each phase gate in the
 - ~~Analytics/crash provider (Phase 0).~~ ✅ Decided — Sentry + minimal event logging ([ADR 0002](decisions/0002-tech-stack-phase0.md)).
 - ◑ Child-safety: strategy decided ([ADR 0003](decisions/0003-child-safety-strategy.md)); **owed** — pick the specific home market + a pre-launch legal review (R7).
 - Animation runtime (R5).
-- Legal giving structure for donations (R10).
+- ⏸ Legal giving structure for donations (R10) — **consciously deferred to Phase 4**; MVP ships with no monetization/claims.
