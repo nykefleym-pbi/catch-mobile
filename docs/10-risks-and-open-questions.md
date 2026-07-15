@@ -37,11 +37,13 @@ the **decision** that must be made. Review this list at each phase gate in the
   rejection UX; server moderation as backstop.
 - **Owner:** eng.
 
-### R4 — Generation provider choice
-- **Impact:** Med. Hosted image API (faster to start, per-image cost, policy
-  constraints) vs. self-hosted pipeline (more control, higher ops burden).
-- **Decision owed:** pick a v1 provider; keep it swappable behind the Edge
-  Function. Revisit on cost/quality data.
+### R4 — Generation provider choice — ✅ DECIDED ([ADR 0001](decisions/0001-image-generation.md))
+- **Impact:** Med. Hosted image API vs. self-hosted pipeline.
+- **Decision:** free-first — **Gemini "2.5 Flash Image" (AI Studio free tier)** as
+  primary + **`rembg`** for transparency; **Cloudflare Workers AI** fallback; kept
+  swappable behind the Edge Function. Revisit provider on cost/quality data.
+- **Residual risk:** free tiers train on submitted data (disclose in privacy
+  policy; escape hatch = cheap paid tier). Free-tier rate limits bound throughput.
 - **Owner:** eng.
 
 ### R5 — Animation tech (Rive vs Spine 2D vs Live2D)
@@ -112,11 +114,10 @@ the **decision** that must be made. Review this list at each phase gate in the
 
 ## Unresolved decisions (quick list)
 
-- v1 image-generation provider (R4).
+- ~~v1 image-generation provider (R4).~~ ✅ Decided — [ADR 0001](decisions/0001-image-generation.md).
+- ~~Raw source-photo retention.~~ ✅ Decided — delete immediately after generation ([ADR 0001](decisions/0001-image-generation.md)).
 - Animation runtime (R5).
 - Flutter state-management library (Phase 0).
 - Analytics/crash provider (privacy-respecting) (Phase 0).
-- Whether raw source photos are deleted immediately post-generation or briefly
-  retained for moderation (ethics doc default: favor deletion).
 - Legal giving structure for donations (R10).
 - Exact child-safety compliance obligations per launch market (R7).

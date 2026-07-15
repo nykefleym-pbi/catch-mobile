@@ -36,9 +36,13 @@ The single highest-risk area. Rules:
 
 ## Data & media handling
 
-- **Source photos** are used for detection and generation, then handled under a
-  **short-retention / delete-after-generation** default, unless a clear,
-  disclosed reason requires otherwise (e.g. an open moderation case).
+- **Source photos** are used for detection and generation, then **deleted
+  immediately after generation succeeds** — we keep only the generated sprite and
+  non-identifying `generation_meta`. (Confirmed decision, see
+  [ADR 0001](decisions/0001-image-generation.md).) Note the trade-off: with no
+  retained original, a later report on a generated sprite can't be checked against
+  the source, so moderation must run **before** deletion (it does — see the
+  [AI Pipeline](architecture/07-ai-pipeline.md)).
 - **Camera and location permissions** are requested **just-in-time** with plain
   rationale, and the app degrades gracefully if declined.
 - **Row-Level Security** isolates each player's data by default; sharing is

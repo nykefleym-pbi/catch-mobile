@@ -88,9 +88,13 @@ guarantee:
   prompt/conditioning/model choice.
 - Every generated cat should still be **visually unique**.
 
-Provider choice (hosted image API vs. self-hosted pipeline) is an open decision in
-[Risks & Open Questions](../10-risks-and-open-questions.md); the Edge-Function
-boundary keeps it swappable.
+**Provider (decided — free-first, [ADR 0001](../decisions/0001-image-generation.md)):**
+primary is **Google Gemini "2.5 Flash Image" (AI Studio free tier)**, with
+**Cloudflare Workers AI** as fallback. Free image models generally output on a solid
+background, so we produce the transparent sprite ourselves as a post-step with
+**`rembg`** (open-source) or on-device subject segmentation:
+`photo → stylize → background removal → transparent PNG`. The Edge-Function boundary
+keeps the provider swappable.
 
 ### Animation (later)
 
@@ -121,7 +125,8 @@ Function enforces:
 
 - Location is fuzzed **before** upload; precise coordinates are never persisted for
   display.
-- Raw source photos are used for detection/generation, then handled per the
-  retention policy in [Ethics, Privacy & Safety](../08-ethics-privacy-safety.md)
-  (favor short retention / deletion after generation).
+- Raw source photos are used for detection/generation, then **deleted immediately
+  after generation succeeds** — only the sprite and non-identifying
+  `generation_meta` are kept ([ADR 0001](../decisions/0001-image-generation.md)).
+  Moderation runs *before* deletion.
 - Generation runs behind our server; provider keys never ship in the client.
