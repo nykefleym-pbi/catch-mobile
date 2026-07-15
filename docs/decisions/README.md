@@ -9,6 +9,7 @@ supersede the old ADR with a new one rather than rewriting history.
 |---|----------|--------|------|
 | [0001](0001-image-generation.md) | Free-first image generation (Gemini AI Studio + rembg) & source-photo deletion | Accepted | 2026-07-15 |
 | [0002](0002-tech-stack-phase0.md) | Phase 0 tech: Riverpod, Sentry, minimal GitHub Actions CI | Accepted | 2026-07-15 |
+| [0003](0003-child-safety-strategy.md) | Child-safety: minimize data to avoid triggers, launch narrow, pre-launch legal review | Accepted | 2026-07-15 |
 
 ## Format
 

@@ -62,11 +62,16 @@ the **decision** that must be made. Review this list at each phase gate in the
   [Ethics, Privacy & Safety](08-ethics-privacy-safety.md).
 - **Owner:** eng + design.
 
-### R7 — Minors, camera & location (COPPA / GDPR-K / AADC)
+### R7 — Minors, camera & location (COPPA / GDPR-K / AADC) — ◑ STRATEGY DECIDED ([ADR 0003](decisions/0003-child-safety-strategy.md))
 - **Impact:** High. A minor-inclusive app collecting camera + location has serious
   regulatory exposure.
-- **Mitigation:** age-appropriate design, age gate, data minimization, conservative
-  defaults; **confirm exact obligations with counsel before launch.**
+- **Strategy:** data-minimization to *avoid* the heavy triggers — delete source
+  photos, fuzz location, no real names / precise-location storage / behavioral
+  profiling, no open chat in v1; neutral age gate + reduced-data mode for under-age
+  users; launch narrow in home market first.
+- **Residual (owed):** (a) a **one-time legal/privacy review before public launch**,
+  and (b) confirming the specific home-market obligations once the launch country is
+  fixed. This doc is privacy-by-design, **not legal advice**.
 - **Owner:** legal + design.
 
 ### R8 — App Store / Play Store policy
@@ -118,6 +123,6 @@ the **decision** that must be made. Review this list at each phase gate in the
 - ~~Raw source-photo retention.~~ ✅ Decided — delete immediately after generation ([ADR 0001](decisions/0001-image-generation.md)).
 - ~~Flutter state-management library (Phase 0).~~ ✅ Decided — Riverpod ([ADR 0002](decisions/0002-tech-stack-phase0.md)).
 - ~~Analytics/crash provider (Phase 0).~~ ✅ Decided — Sentry + minimal event logging ([ADR 0002](decisions/0002-tech-stack-phase0.md)).
+- ◑ Child-safety: strategy decided ([ADR 0003](decisions/0003-child-safety-strategy.md)); **owed** — pick the specific home market + a pre-launch legal review (R7).
 - Animation runtime (R5).
 - Legal giving structure for donations (R10).
-- Exact child-safety compliance obligations per launch market (R7).

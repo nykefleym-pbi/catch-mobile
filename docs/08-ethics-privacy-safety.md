@@ -51,14 +51,26 @@ The single highest-risk area. Rules:
 ## Minors, consent & regulation
 
 Cat-ch will attract **children and teens**, and it uses **camera + location** —
-two of the most sensitive data types. Treated as a first-class constraint:
+two of the most sensitive data types. Treated as a first-class constraint.
+
+**Strategy (decided, [ADR 0003](decisions/0003-child-safety-strategy.md)): avoid
+the heavy triggers by minimizing data, rather than building consent machinery to
+manage it.** The MVP already deletes source photos ([ADR 0001](decisions/0001-image-generation.md))
+and fuzzes location; combined with no real names, no precise-location storage, no
+behavioral ad profiling, and no open chat in v1 (social is deferred to Phase 3),
+most of COPPA / GDPR-K / UK-AADC's heaviest obligations are *avoided* rather than
+managed. Launch is **narrow in the maintainer's home market first**, expanding
+later.
 
 - **Age-appropriate design.** Follow child-safety expectations (e.g. COPPA in the
-  US, UK Age-Appropriate Design Code, GDPR/GDPR-K in the EU). Confirm exact
-  obligations with counsel before launch — flagged in
+  US, UK Age-Appropriate Design Code, GDPR/GDPR-K in the EU). This documentation is
+  privacy-by-design but **not legal advice**; get a **one-time legal/privacy review
+  before public launch** — flagged in
   [Risks & Open Questions](10-risks-and-open-questions.md).
-- **Age gate & appropriate consent** at onboarding; reduced data collection and no
-  behavioral profiling for younger users.
+- **Neutral age gate at onboarding**, with a **reduced-data mode** for under-age
+  users: no personal-data collection, no behavioral profiling. Because we don't
+  collect the data that would demand it, we avoid building parental-consent flows
+  in the MVP.
 - **No precise-location sharing** for anyone, and extra conservatism for minors.
 - **Safe social surfaces.** Any user-to-user feature (Phase 3+) ships with
   moderation, reporting, blocking, and default-conservative privacy for minors.
