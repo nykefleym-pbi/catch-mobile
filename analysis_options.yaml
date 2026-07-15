@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Unawaited futures are easy to introduce in the async capture/generation
+    # flows; make them fail analysis.
+    unawaited_futures: error
+
+linter:
+  rules:
+    - avoid_print

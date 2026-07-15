@@ -1,0 +1,39 @@
+name: catch_mobile
+description: "Cat-ch — discover, befriend, and care for real cats around the world."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (ADR 0002)
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.0
+
+  # Backend (Supabase)
+  supabase_flutter: ^2.5.6
+
+  # Crash reporting (ADR 0002)
+  sentry_flutter: ^8.9.0
+
+  # Runtime permissions (camera, location)
+  permission_handler: ^11.3.1
+
+  # --- Phase 1 (enable when building the capture -> CatDex loop) ---
+  # google_maps_flutter: ^2.7.0          # cozy map & exploration
+  # camera: ^0.11.0                      # in-game camera
+  # google_mlkit_image_labeling: ^0.13.0 # on-device "is this a real cat?" gate
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

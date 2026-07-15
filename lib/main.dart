@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'app.dart';
+import 'core/config/env.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase if configured. The app still boots without it so the
+  // UI/scaffold can be worked on before a backend exists.
+  if (Env.hasSupabase) {
+    await Supabase.initialize(
+      url: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
+    );
+  }
+
+  Widget appRoot() => const ProviderScope(child: CatchApp());
+
+  // Wrap in Sentry only when a DSN is supplied (ADR 0002); otherwise run plain.
+  if (Env.hasSentry) {
+    await SentryFlutter.init(
+      (options) => options.dsn = Env.sentryDsn,
+      appRunner: () => runApp(appRoot()),
+    );
+  } else {
+    runApp(appRoot());
+  }
+}

@@ -16,8 +16,11 @@ welfare always comes before gameplay.
 
 ## Status
 
-📋 **Planning.** This repository currently contains the product and technical
-planning documentation. No application code has been written yet.
+🚧 **Phase 0 — Foundations.** The planning documentation is complete and the
+Flutter app scaffold is in place (Riverpod + Supabase + Sentry wiring, v1
+database schema, and the `generate-companion` Edge Function boundary). Feature
+bodies — camera, map, on-device detection, companion generation — arrive in
+Phase 1. See **[DEVELOPMENT.md](DEVELOPMENT.md)** to get it running.
 
 ## Documentation
 
