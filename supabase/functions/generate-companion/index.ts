@@ -21,16 +21,18 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// The 10 v1 personality traits (see 0002_seed_reference_data.sql). Generation
-// picks one; we validate against this set and fall back if the model strays.
 const TRAIT_IDS = [
   "curious", "brave", "lazy", "foodie", "mischievous",
   "elegant", "playful", "protective", "explorer", "shy",
 ] as const;
 
-// Gentle daily ceiling per user — well under free-tier provider limits, and a
-// guard against runaway cost/abuse. Fails cleanly (429) without side effects.
+// Gentle daily ceiling per user — well under free-tier provider limits.
 const DAILY_CAP = 30;
+
+// Hard timeouts on the provider calls so a stalled request fails fast with a
+// clear error instead of burning to the ~150s platform wall-clock limit.
+const IMAGE_TIMEOUT_MS = 75_000;
+const TEXT_TIMEOUT_MS = 25_000;
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -54,6 +56,9 @@ interface CompanionMeta {
 }
 
 Deno.serve(async (req: Request) => {
+  const t0 = Date.now();
+  const log = (msg: string) => console.log(`[gen +${Date.now() - t0}ms] ${msg}`);
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -68,10 +73,17 @@ Deno.serve(async (req: Request) => {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) return json({ error: "unauthorized" }, 401);
+  if (userErr || !userData.user) {
+    log(`auth failed: ${userErr?.message ?? "no user"}`);
+    return json({ error: "unauthorized" }, 401);
+  }
   const userId = userData.user.id;
+  log(`authed user ${userId}`);
 
-  if (!geminiKey) return json({ error: "generation_unconfigured" }, 503);
+  if (!geminiKey) {
+    log("GEMINI_API_KEY missing");
+    return json({ error: "generation_unconfigured" }, 503);
+  }
 
   let body: GenerateRequest;
   try {
@@ -81,8 +93,8 @@ Deno.serve(async (req: Request) => {
   }
   if (!body.imageBase64) return json({ error: "missing_image" }, 400);
   const mimeType = body.mimeType ?? "image/jpeg";
+  log(`body parsed, image ~${Math.round(body.imageBase64.length / 1024)}KB b64`);
 
-  // Service-role client for trusted server-side DB + storage writes.
   const db = createClient(supabaseUrl, serviceKey);
 
   // --- 2. Per-user daily cap -----------------------------------------------
@@ -96,7 +108,6 @@ Deno.serve(async (req: Request) => {
     return json({ error: "daily_cap_reached", cap: DAILY_CAP }, 429);
   }
 
-  // Record the capture up front so a failure is never silently lost.
   const { data: capture, error: capErr } = await db
     .from("captures")
     .insert({
@@ -107,19 +118,23 @@ Deno.serve(async (req: Request) => {
     .select("id")
     .single();
   if (capErr || !capture) {
+    log(`capture insert failed: ${capErr?.message}`);
     return json({ error: "capture_write_failed", detail: capErr?.message }, 500);
   }
   const captureId = capture.id as string;
+  log(`capture ${captureId} created`);
 
   try {
     // --- 3. Generate the sprite --------------------------------------------
     const sprite = await generateSprite(geminiKey, body.imageBase64, mimeType);
+    log(`sprite generated (${sprite.byteLength} bytes)`);
 
     // --- 4. Extract descriptive metadata -----------------------------------
     const meta = await describeCat(geminiKey, body.imageBase64, mimeType);
     const traitId = TRAIT_IDS.includes(meta.trait_id as typeof TRAIT_IDS[number])
       ? meta.trait_id
       : TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)];
+    log(`meta ready: ${meta.name} / ${traitId}`);
 
     // --- 5. Store the sprite -----------------------------------------------
     const path = `${userId}/${captureId}.png`;
@@ -129,6 +144,7 @@ Deno.serve(async (req: Request) => {
     if (upErr) throw new Error(`sprite_upload_failed: ${upErr.message}`);
     const { data: pub } = db.storage.from("sprites").getPublicUrl(path);
     const spriteUrl = pub.publicUrl;
+    log(`sprite uploaded: ${spriteUrl}`);
 
     // --- 6. Persist cat + care_state ---------------------------------------
     const { data: cat, error: catErr } = await db
@@ -154,11 +170,13 @@ Deno.serve(async (req: Request) => {
 
     await db.from("care_state").insert({ cat_id: cat.id, profile_id: userId });
     await db.from("captures").update({ status: "complete" }).eq("id", captureId);
+    log(`done, cat ${cat.id}`);
 
     return json({ cat }, 200);
   } catch (error) {
-    await db.from("captures").update({ status: "failed" }).eq("id", captureId);
     const message = error instanceof Error ? error.message : String(error);
+    log(`generation_failed: ${message}`);
+    await db.from("captures").update({ status: "failed" }).eq("id", captureId);
     return json({ error: "generation_failed", detail: message }, 502);
   }
 });
@@ -179,19 +197,23 @@ async function generateSprite(
     "viewer. Render on a fully transparent background. No text, no borders, no " +
     "watermark, no drop shadow on the ground.";
 
-  const res = await fetch(`${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        ],
-      }],
-      generationConfig: { responseModalities: ["IMAGE"] },
-    }),
-  });
+  const res = await fetchWithTimeout(
+    `${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: imageBase64 } },
+          ],
+        }],
+        generationConfig: { responseModalities: ["IMAGE"] },
+      }),
+    },
+    IMAGE_TIMEOUT_MS,
+  );
 
   if (!res.ok) {
     throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
@@ -202,7 +224,10 @@ async function generateSprite(
     const inline = part.inlineData ?? part.inline_data;
     if (inline?.data) return decodeBase64(inline.data);
   }
-  throw new Error("image_api_no_image");
+  // Surface why no image came back (often a safety block or text-only reply).
+  const finish = data?.candidates?.[0]?.finishReason ?? "unknown";
+  const block = data?.promptFeedback?.blockReason ?? "none";
+  throw new Error(`image_api_no_image (finish=${finish}, block=${block})`);
 }
 
 // --- Gemini: descriptive metadata (structured JSON) ------------------------
@@ -235,25 +260,28 @@ async function describeCat(
     ],
   };
 
-  const res = await fetch(`${GEMINI_BASE}/${TEXT_MODEL}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        ],
-      }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
-    }),
-  });
-
-  if (!res.ok) return fallbackMeta();
   try {
+    const res = await fetchWithTimeout(
+      `${GEMINI_BASE}/${TEXT_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          },
+        }),
+      },
+      TEXT_TIMEOUT_MS,
+    );
+    if (!res.ok) return fallbackMeta();
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts
       ?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
@@ -261,6 +289,7 @@ async function describeCat(
     if (!parsed.name) parsed.name = "Mystery Cat";
     return parsed;
   } catch {
+    // Metadata is non-critical — never fail the whole catch over it.
     return fallbackMeta();
   }
 }
@@ -279,6 +308,25 @@ function fallbackMeta(): CompanionMeta {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`provider_timeout_after_${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function decodeBase64(b64: string): Uint8Array {
   const binary = atob(b64);
