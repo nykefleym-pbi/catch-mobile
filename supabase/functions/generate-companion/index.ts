@@ -36,10 +36,17 @@ const TRAIT_IDS = [
 // Gentle daily ceiling per user — well under free-tier provider limits.
 const DAILY_CAP = 30;
 
-// Hard timeouts on the provider calls so a stalled request fails fast with a
-// clear error instead of burning to the ~150s platform wall-clock limit.
-const IMAGE_TIMEOUT_MS = 75_000;
-const TEXT_TIMEOUT_MS = 25_000;
+// Hard timeouts on every external call so a stalled request fails fast with a
+// clear error instead of burning to the ~150s platform wall-clock limit. The
+// image timeout is per attempt: the Cloudflare path may try img2img and then a
+// text-to-image fallback, so two of these must still fit comfortably under the
+// wall clock alongside auth + upload.
+const IMAGE_TIMEOUT_MS = 45_000;
+const TEXT_TIMEOUT_MS = 20_000;
+// Timeout for the quick Supabase round-trips (auth, cap count, inserts, upload)
+// so a stalled control-plane call can't silently eat the whole request budget.
+const DB_TIMEOUT_MS = 15_000;
+const UPLOAD_TIMEOUT_MS = 30_000;
 
 // Which backend generates the sprite. Defaults to Cloudflare so the app works
 // on a free tier; set IMAGE_PROVIDER=gemini to use nano-banana instead.
@@ -93,12 +100,24 @@ Deno.serve(async (req: Request) => {
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData.user) {
-    log(`auth failed: ${userErr?.message ?? "no user"}`);
-    return json({ error: "unauthorized" }, 401);
+  let userId: string;
+  try {
+    const { data: userData, error: userErr } = await withTimeout(
+      userClient.auth.getUser(),
+      DB_TIMEOUT_MS,
+      "auth",
+    );
+    if (userErr || !userData.user) {
+      log(`auth failed: ${userErr?.message ?? "no user"}`);
+      return json({ error: "unauthorized" }, 401);
+    }
+    userId = userData.user.id;
+  } catch (error) {
+    // A stalled auth round-trip must not hang to the wall clock.
+    const message = error instanceof Error ? error.message : String(error);
+    log(`auth error: ${message}`);
+    return json({ error: "auth_unavailable", detail: message }, 504);
   }
-  const userId = userData.user.id;
   log(`authed user ${userId}`);
 
   // The active provider must have its credentials configured.
@@ -126,29 +145,50 @@ Deno.serve(async (req: Request) => {
 
   // --- 2. Per-user daily cap -----------------------------------------------
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count } = await db
-    .from("cats")
-    .select("id", { count: "exact", head: true })
-    .eq("profile_id", userId)
-    .gte("discovered_at", since);
-  if ((count ?? 0) >= DAILY_CAP) {
-    return json({ error: "daily_cap_reached", cap: DAILY_CAP }, 429);
+  try {
+    const { count } = await withTimeout(
+      db
+        .from("cats")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", userId)
+        .gte("discovered_at", since),
+      DB_TIMEOUT_MS,
+      "daily_cap",
+    );
+    if ((count ?? 0) >= DAILY_CAP) {
+      return json({ error: "daily_cap_reached", cap: DAILY_CAP }, 429);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log(`daily cap check failed: ${message}`);
+    return json({ error: "generation_unavailable", detail: message }, 504);
   }
 
-  const { data: capture, error: capErr } = await db
-    .from("captures")
-    .insert({
-      profile_id: userId,
-      status: "generating",
-      detection_result: body.detection ?? null,
-    })
-    .select("id")
-    .single();
-  if (capErr || !capture) {
-    log(`capture insert failed: ${capErr?.message}`);
-    return json({ error: "capture_write_failed", detail: capErr?.message }, 500);
+  let captureId: string;
+  try {
+    const { data: capture, error: capErr } = await withTimeout(
+      db
+        .from("captures")
+        .insert({
+          profile_id: userId,
+          status: "generating",
+          detection_result: body.detection ?? null,
+        })
+        .select("id")
+        .single(),
+      DB_TIMEOUT_MS,
+      "capture_insert",
+    );
+    if (capErr || !capture) {
+      log(`capture insert failed: ${capErr?.message}`);
+      return json({ error: "capture_write_failed", detail: capErr?.message }, 500);
+    }
+    captureId = capture.id as string;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log(`capture insert error: ${message}`);
+    return json({ error: "capture_write_failed", detail: message }, 500);
   }
-  const captureId = capture.id as string;
   log(`capture ${captureId} created`);
 
   try {
@@ -176,38 +216,54 @@ Deno.serve(async (req: Request) => {
 
     // --- 5. Store the sprite -----------------------------------------------
     const path = `${userId}/${captureId}.png`;
-    const { error: upErr } = await db.storage
-      .from("sprites")
-      .upload(path, sprite, { contentType: "image/png", upsert: true });
+    const { error: upErr } = await withTimeout(
+      db.storage
+        .from("sprites")
+        .upload(path, sprite, { contentType: "image/png", upsert: true }),
+      UPLOAD_TIMEOUT_MS,
+      "sprite_upload",
+    );
     if (upErr) throw new Error(`sprite_upload_failed: ${upErr.message}`);
     const { data: pub } = db.storage.from("sprites").getPublicUrl(path);
     const spriteUrl = pub.publicUrl;
     log(`sprite uploaded: ${spriteUrl}`);
 
     // --- 6. Persist cat + care_state ---------------------------------------
-    const { data: cat, error: catErr } = await db
-      .from("cats")
-      .insert({
-        capture_id: captureId,
-        profile_id: userId,
-        name: meta.name,
-        sprite_url: spriteUrl,
-        trait_id: traitId,
-        generation_meta: {
-          coat_color: meta.coat_color,
-          pattern: meta.pattern,
-          eye_color: meta.eye_color,
-          tail: meta.tail,
-          markings: meta.markings,
-          blurb: meta.blurb,
-        },
-      })
-      .select("id, name, sprite_url, trait_id, generation_meta, discovered_at")
-      .single();
+    const { data: cat, error: catErr } = await withTimeout(
+      db
+        .from("cats")
+        .insert({
+          capture_id: captureId,
+          profile_id: userId,
+          name: meta.name,
+          sprite_url: spriteUrl,
+          trait_id: traitId,
+          generation_meta: {
+            coat_color: meta.coat_color,
+            pattern: meta.pattern,
+            eye_color: meta.eye_color,
+            tail: meta.tail,
+            markings: meta.markings,
+            blurb: meta.blurb,
+          },
+        })
+        .select("id, name, sprite_url, trait_id, generation_meta, discovered_at")
+        .single(),
+      DB_TIMEOUT_MS,
+      "cat_insert",
+    );
     if (catErr || !cat) throw new Error(`cat_write_failed: ${catErr?.message}`);
 
-    await db.from("care_state").insert({ cat_id: cat.id, profile_id: userId });
-    await db.from("captures").update({ status: "complete" }).eq("id", captureId);
+    await withTimeout(
+      db.from("care_state").insert({ cat_id: cat.id, profile_id: userId }),
+      DB_TIMEOUT_MS,
+      "care_state_insert",
+    );
+    await withTimeout(
+      db.from("captures").update({ status: "complete" }).eq("id", captureId),
+      DB_TIMEOUT_MS,
+      "capture_complete",
+    );
     log(`done, cat ${cat.id}`);
 
     return json({ cat }, 200);
@@ -216,10 +272,14 @@ Deno.serve(async (req: Request) => {
     log(`generation_failed: ${message}`);
     // Persist the reason on the capture so failures are diagnosable via SQL
     // even without access to function stdout.
-    await db.from("captures").update({
-      status: "failed",
-      detection_result: { ...(body.detection ?? {}), error: message },
-    }).eq("id", captureId);
+    await withTimeout(
+      db.from("captures").update({
+        status: "failed",
+        detection_result: { ...(body.detection ?? {}), error: message },
+      }).eq("id", captureId),
+      DB_TIMEOUT_MS,
+      "capture_fail",
+    ).catch((e) => log(`failed to record failure: ${e}`));
     return json({ error: "generation_failed", detail: message }, 502);
   }
 });
@@ -247,7 +307,36 @@ async function generateSpriteCloudflare(
     "warm pastel palette, big friendly eyes, centered, full body, simple soft " +
     "background, high quality, adorable";
 
-  const res = await fetchWithTimeout(
+  // Prefer img2img so the sprite echoes the real cat's colours/markings. Some
+  // SDXL endpoints are slow or unreliable when handed a source image, so if that
+  // attempt errors or times out we fall back to text-to-image — a cozy sprite
+  // still beats a failed catch. (The metadata is generated locally either way.)
+  try {
+    return await cfImageRun(accountId, token, {
+      prompt,
+      // strength ~0.6 restyles firmly while still echoing the source photo.
+      image_b64: imageBase64,
+      strength: 0.6,
+      guidance: 7.5,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(
+      `[gen] cloudflare img2img failed (${message}); retrying text-to-image`,
+    );
+    return await cfImageRun(accountId, token, { prompt, guidance: 7.5 });
+  }
+}
+
+// One Cloudflare Workers AI image call. The abort timer stays armed through the
+// body read (see fetchWithTimeout) so a response that returns headers and then
+// stalls its PNG stream still fails fast instead of hanging to the wall clock.
+async function cfImageRun(
+  accountId: string,
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<Uint8Array> {
+  return await fetchWithTimeout(
     `${CF_BASE}/${accountId}/ai/run/${CF_IMAGE_MODEL}`,
     {
       method: "POST",
@@ -255,27 +344,21 @@ async function generateSpriteCloudflare(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        prompt,
-        // img2img: condition on the real photo so coat colour and markings carry
-        // through. strength ~0.6 restyles firmly while still echoing the source.
-        image_b64: imageBase64,
-        strength: 0.6,
-        guidance: 7.5,
-      }),
+      body: JSON.stringify(payload),
     },
     IMAGE_TIMEOUT_MS,
+    async (res) => {
+      // On success SD models stream raw PNG bytes; on failure Cloudflare returns
+      // a JSON error envelope. Branch on that so failures surface readably.
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || contentType.includes("application/json")) {
+        throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.byteLength === 0) throw new Error("image_api_empty_response");
+      return bytes;
+    },
   );
-
-  // On success SD models stream raw PNG bytes; on failure Cloudflare returns a
-  // JSON error envelope. Branch on that so failures surface a readable message.
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.ok || contentType.includes("application/json")) {
-    throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
-  }
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.byteLength === 0) throw new Error("image_api_empty_response");
-  return bytes;
 }
 
 // --- Gemini: image stylization ---------------------------------------------
@@ -294,7 +377,7 @@ async function generateSpriteGemini(
     "viewer. Render on a fully transparent background. No text, no borders, no " +
     "watermark, no drop shadow on the ground.";
 
-  const res = await fetchWithTimeout(
+  const data = await fetchWithTimeout(
     `${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`,
     {
       method: "POST",
@@ -312,12 +395,14 @@ async function generateSpriteGemini(
       }),
     },
     IMAGE_TIMEOUT_MS,
+    async (res) => {
+      if (!res.ok) {
+        throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
+      }
+      return await res.json();
+    },
   );
 
-  if (!res.ok) {
-    throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
-  }
-  const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts ?? [];
   for (const part of parts) {
     const inline = part.inlineData ?? part.inline_data;
@@ -360,7 +445,7 @@ async function describeCat(
   };
 
   try {
-    const res = await fetchWithTimeout(
+    const data = await fetchWithTimeout(
       `${GEMINI_BASE}/${TEXT_MODEL}:generateContent`,
       {
         method: "POST",
@@ -379,9 +464,9 @@ async function describeCat(
         }),
       },
       TEXT_TIMEOUT_MS,
+      async (res) => (res.ok ? await res.json() : null),
     );
-    if (!res.ok) return fallbackMeta();
-    const data = await res.json();
+    if (!data) return fallbackMeta();
     const text = data?.candidates?.[0]?.content?.parts
       ?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
     const parsed = JSON.parse(text) as CompanionMeta;
@@ -444,15 +529,21 @@ function localMeta(): CompanionMeta {
 
 // --- helpers ---------------------------------------------------------------
 
-async function fetchWithTimeout(
+// Fetch with a single abort timer that covers BOTH the request and the body
+// read: `consume` runs while the timer is still armed, so a response that sends
+// headers and then stalls its stream still aborts at the timeout instead of
+// hanging to the platform wall-clock limit.
+async function fetchWithTimeout<T>(
   url: string,
   init: RequestInit,
   timeoutMs: number,
-): Promise<Response> {
+  consume: (res: Response) => Promise<T>,
+): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return await consume(res);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error(`provider_timeout_after_${timeoutMs}ms`);
@@ -461,6 +552,28 @@ async function fetchWithTimeout(
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Races an arbitrary promise (e.g. a Supabase query builder, which is thenable)
+// against a timeout so a stalled control-plane call rejects with a labelled
+// error instead of silently eating the request budget.
+function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label}_timeout_after_${ms}ms`)),
+      ms,
+    );
+    Promise.resolve(p).then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
 }
 
 function decodeBase64(b64: string): Uint8Array {
