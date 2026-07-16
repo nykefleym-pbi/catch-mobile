@@ -30,11 +30,43 @@ jobs:
       - name: Generate Android platform folder
         run: flutter create . --org com.example --platforms=android
 
+      # The generated manifest has no runtime permissions. The capture flow needs
+      # the camera; declare it (and mark the hardware optional so the app still
+      # installs on camera-less devices). Later phases add location here too.
+      - name: Add camera permission to manifest
+        run: |
+          manifest=android/app/src/main/AndroidManifest.xml
+          python3 - "$manifest" <<'PY'
+          import sys
+          path = sys.argv[1]
+          with open(path) as f:
+              src = f.read()
+          perms = (
+              '    <uses-permission android:name="android.permission.CAMERA" />\n'
+              '    <uses-feature android:name="android.hardware.camera" '
+              'android:required="false" />\n'
+          )
+          anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          assert anchor in src, "manifest anchor not found"
+          src = src.replace(anchor, anchor + "\n" + perms, 1)
+          with open(path, "w") as f:
+              f.write(src)
+          print("camera permission added")
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Build debug APK
-        run: flutter build apk --debug
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

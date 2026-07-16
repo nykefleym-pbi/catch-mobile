@@ -18,6 +18,20 @@ Future<void> main() async {
       // safe to ship (RLS enforces access).
       publishableKey: Env.supabaseAnonKey,
     );
+
+    // Cozy, no-signup entry: give every install an anonymous session so captures
+    // can persist under RLS (the auth trigger creates the profile row). If
+    // anonymous sign-ins aren't enabled on the project yet, don't crash — the
+    // capture + detection UI works locally; only persistence needs a session.
+    final auth = Supabase.instance.client.auth;
+    if (auth.currentSession == null) {
+      try {
+        await auth.signInAnonymously();
+      } catch (error) {
+        // Sentry isn't initialized yet at this point, so just log.
+        debugPrint('Anonymous sign-in unavailable: $error');
+      }
+    }
   }
 
   Widget appRoot() => const ProviderScope(child: CatchApp());

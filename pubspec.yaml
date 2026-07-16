@@ -27,10 +27,12 @@ dependencies:
   # Runtime permissions (camera, location)
   permission_handler: ^11.3.1
 
-  # --- Phase 1 (enable when building the capture -> CatDex loop) ---
+  # --- Phase 1: capture -> CatDex loop ---
+  camera: ^0.11.0                      # in-game camera
+  google_mlkit_image_labeling: ^0.13.0 # on-device "is this a real cat?" gate
+
+  # --- Later phases (enable when building map / exploration) ---
   # google_maps_flutter: ^2.7.0          # cozy map & exploration
-  # camera: ^0.11.0                      # in-game camera
-  # google_mlkit_image_labeling: ^0.13.0 # on-device "is this a real cat?" gate
 
 dev_dependencies:
   flutter_test:

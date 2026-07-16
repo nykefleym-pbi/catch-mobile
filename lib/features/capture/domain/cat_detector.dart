@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 /// Outcome of the on-device "is this a real cat?" + quality gate that runs
 /// before we ever spend a (free-tier, but rate-limited) generation call.
 /// See docs/architecture/07-ai-pipeline.md.
@@ -27,8 +25,11 @@ class CatDetectionResult {
 }
 
 /// On-device cat detection contract. The Phase 1 implementation is backed by
-/// Google ML Kit / TFLite; keeping it behind an interface lets us swap the
-/// model and unit-test the capture flow with a fake.
+/// Google ML Kit; keeping it behind an interface lets us swap the model and
+/// unit-test the capture flow with a fake.
+///
+/// [imagePath] is a path to a photo just written to disk by the camera. Running
+/// from a file (rather than raw bytes) lets ML Kit handle decoding/rotation.
 abstract interface class CatDetector {
-  Future<CatDetectionResult> analyze(Uint8List imageBytes);
+  Future<CatDetectionResult> analyze(String imagePath);
 }
