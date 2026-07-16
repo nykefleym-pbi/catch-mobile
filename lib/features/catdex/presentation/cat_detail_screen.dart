@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
+import '../../care/domain/treat.dart';
 import '../domain/cat.dart';
 
 /// A single companion's page: the big (reactive) sprite, its trait and story,
@@ -77,20 +78,54 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     super.dispose();
   }
 
-  Future<void> _interact({required bool feed}) async {
+  Future<void> _openTreatPicker() async {
+    final treat = await showModalBottomSheet<Treat>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const _TreatSheet(),
+    );
+    if (treat == null) return;
+    await _feed(treat);
+  }
+
+  Future<void> _feed(Treat treat) {
+    // The 'foodie' trait "gains extra affection from feeding" (0002 seed).
+    final foodie = widget.cat.traitId == 'foodie';
+    final bond = treat.bond + (foodie ? 1 : 0);
+    return _runCare(
+      floater: treat.emoji,
+      action: () => ref.read(careControllerProvider(widget.catId).notifier).feed(
+            bondGain: bond,
+            happinessGain: treat.happiness,
+          ),
+      message: foodie
+          ? '${widget.cat.name} devoured the ${treat.label}! ${treat.emoji}'
+          : '${widget.cat.name} enjoyed ${treat.label} ${treat.emoji}',
+    );
+  }
+
+  Future<void> _play() => _runCare(
+        floater: '🧶',
+        action: () =>
+            ref.read(careControllerProvider(widget.catId).notifier).play(),
+        message: '${widget.cat.name} had fun 🧶',
+      );
+
+  /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
+  /// then a snackbar — celebrating a bond level-up when one happens.
+  Future<void> _runCare({
+    required String floater,
+    required Future<void> Function() action,
+    required String message,
+  }) async {
     final provider = careControllerProvider(widget.catId);
     final before = ref.read(provider).valueOrNull?.friendship ?? 0;
 
     unawaited(HapticFeedback.lightImpact());
     unawaited(_bounce.forward(from: 0));
-    _spawnFloater(feed ? '🐟' : '🧶');
+    _spawnFloater(floater);
 
-    final notifier = ref.read(provider.notifier);
-    if (feed) {
-      await notifier.feed();
-    } else {
-      await notifier.play();
-    }
+    await action();
     if (!mounted) return;
 
     final after = ref.read(provider).valueOrNull?.friendship ?? before;
@@ -109,14 +144,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
       );
     } else {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            feed
-                ? '${widget.cat.name} enjoyed a snack 🐟'
-                : '${widget.cat.name} had fun 🧶',
-          ),
-          duration: const Duration(seconds: 1),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
       );
     }
   }
@@ -318,7 +346,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => _interact(feed: true),
+                onPressed: _openTreatPicker,
                 icon: const Icon(Icons.restaurant),
                 label: const Text('Feed'),
               ),
@@ -326,7 +354,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.tonalIcon(
-                onPressed: () => _interact(feed: false),
+                onPressed: _play,
                 icon: const Icon(Icons.sports_esports),
                 label: const Text('Play'),
               ),
@@ -435,6 +463,38 @@ class _SpritePanel extends StatelessWidget {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// The treat menu shown when the player taps Feed. Tapping a treat pops the
+/// sheet with the chosen [Treat].
+class _TreatSheet extends StatelessWidget {
+  const _TreatSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Text('Pick a treat', style: theme.textTheme.titleLarge),
+          ),
+          for (final treat in kTreats)
+            ListTile(
+              leading: Text(treat.emoji, style: const TextStyle(fontSize: 28)),
+              title: Text(treat.label),
+              subtitle: Text('+${treat.bond} bond'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).pop(treat),
+            ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

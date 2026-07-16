@@ -163,17 +163,18 @@ class CareState {
         friendship: friendship ?? this.friendship,
       );
 
-  /// Feeding fills hunger, lifts spirits a little, and deepens the bond (+1).
-  /// Built from the *current* decayed values so it's fair no matter how long
-  /// it's been.
-  CareState fed() {
+  /// Feeding fills hunger, lifts spirits, and deepens the bond. The gains
+  /// depend on the treat chosen ([bondGain] / [happinessGain]); a plain feed
+  /// defaults to +1 bond. Built from the *current* decayed values so it's fair
+  /// no matter how long it's been.
+  CareState fed({int bondGain = 1, int happinessGain = 5}) {
     final next = CareState(
       catId: catId,
       hunger: 100,
-      happiness: (currentHappiness + 5).clamp(0, 100),
+      happiness: (currentHappiness + happinessGain).clamp(0, 100),
       mood: mood,
       lastUpdated: DateTime.now(),
-      friendship: friendship + 1,
+      friendship: friendship + bondGain,
     );
     return next.copyWith(mood: next.currentMood.toLowerCase());
   }

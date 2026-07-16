@@ -55,11 +55,27 @@ void main() {
         lastUpdated: DateTime.now().subtract(const Duration(hours: 10)),
         friendship: 4,
       );
-      // happiness decays 40 -> 30 (floor), then +5 on feed.
+      // happiness decays 40 -> 30 (floor), then +5 on a plain feed.
       final fed = care.fed();
       expect(fed.hunger, 100);
       expect(fed.happiness, 35);
       expect(fed.friendship, 5);
+    });
+
+    test('a richer treat grants more bond and happiness', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 50,
+        happiness: 40,
+        mood: 'restless',
+        lastUpdated: DateTime.now().subtract(const Duration(hours: 10)),
+        friendship: 4,
+      );
+      // happiness decays 40 -> 30, then +7; bond +3.
+      final fed = care.fed(bondGain: 3, happinessGain: 7);
+      expect(fed.hunger, 100);
+      expect(fed.happiness, 37);
+      expect(fed.friendship, 7);
     });
 
     test('playing tops up happiness and bonds +2', () {

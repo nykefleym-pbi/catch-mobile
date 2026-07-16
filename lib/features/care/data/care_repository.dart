@@ -76,7 +76,8 @@ class CareController extends StateNotifier<AsyncValue<CareState>> {
     state = await AsyncValue.guard(() => _repo.fetch(_catId));
   }
 
-  Future<void> feed() => _apply((c) => c.fed());
+  Future<void> feed({int bondGain = 1, int happinessGain = 5}) =>
+      _apply((c) => c.fed(bondGain: bondGain, happinessGain: happinessGain));
 
   Future<void> play() => _apply((c) => c.played());
 
