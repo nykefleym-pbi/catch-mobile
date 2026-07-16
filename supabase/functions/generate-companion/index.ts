@@ -85,7 +85,7 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  const cfAccount = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
+  const cfAccount = cfAccountId(Deno.env.get("CLOUDFLARE_ACCOUNT_ID"));
   const cfToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
 
   // --- 1. Authenticate the caller ------------------------------------------
@@ -225,6 +225,15 @@ Deno.serve(async (req: Request) => {
 });
 
 // --- Cloudflare Workers AI: image stylization (img2img) --------------------
+
+// The Cloudflare Account ID is a 32-char hex string. Be forgiving if the secret
+// was pasted as the full dashboard URL (…/<accountId>/…) or with stray
+// whitespace — extract the bare id so the API path resolves either way.
+function cfAccountId(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  const match = raw.match(/[0-9a-fA-F]{32}/);
+  return (match ? match[0] : raw.trim());
+}
 
 async function generateSpriteCloudflare(
   accountId: string,
