@@ -1,48 +1,77 @@
 // Supabase Edge Function: generate-companion
 //
 // The ONLY place that talks to the image-generation provider. The client never
-// holds the provider key. Responsibilities (see docs/architecture/07-ai-pipeline.md
-// and docs/decisions/0001-image-generation.md):
+// holds the provider key. Flow (docs/architecture/07-ai-pipeline.md, ADR 0001):
 //
-//   1. Authenticate the caller.
-//   2. Enforce rate limit + per-user/day cost cap (free-tier friendly).
-//   3. Moderate the submitted image.
-//   4. Generate a stylized companion (Gemini 2.5 Flash Image, free tier).
-//   5. Remove background -> transparent PNG sprite (rembg / segmentation).
-//   6. Store the sprite; persist cat + care_state rows.
-//   7. Delete the raw source photo (we keep only the sprite).
+//   1. Authenticate the caller (anonymous sign-in users are authenticated).
+//   2. Enforce a gentle per-user/day generation cap (free-tier friendly).
+//   3. Generate a stylized companion with Gemini 2.5 Flash Image, conditioned on
+//      the source photo so it echoes the real cat's colours/markings.
+//   4. Extract non-identifying descriptive metadata (coat, pattern, eyes, tail,
+//      markings, a personality trait, a name).
+//   5. Store the sprite in the public `sprites` bucket.
+//   6. Persist cats + care_state; mark the capture complete.
 //
-// Phase 0 is a documented stub: the boundary, contract, and guard rails are
-// expressed; the provider calls are TODO for Phase 1.
+// PRIVACY: the raw source photo is sent inline and is NEVER written to storage.
+// Generation happens in-memory and the bytes are discarded when the request
+// ends — the strongest form of "delete the source after generation".
+//
+// Gemini safety filters are the moderation backstop for this slice; dedicated
+// image moderation and true alpha-cutout (rembg) are hardening follow-ups.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+// The 10 v1 personality traits (see 0002_seed_reference_data.sql). Generation
+// picks one; we validate against this set and fall back if the model strays.
+const TRAIT_IDS = [
+  "curious", "brave", "lazy", "foodie", "mischievous",
+  "elegant", "playful", "protective", "explorer", "shy",
+] as const;
+
+// Gentle daily ceiling per user — well under free-tier provider limits, and a
+// guard against runaway cost/abuse. Fails cleanly (429) without side effects.
+const DAILY_CAP = 30;
+
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const IMAGE_MODEL = "gemini-2.5-flash-image";
+const TEXT_MODEL = "gemini-2.5-flash";
+
 interface GenerateRequest {
-  captureId: string;
-  // The accepted image is uploaded to a short-lived storage path by the client;
-  // the function reads it, generates, then deletes it. Passing a path (not raw
-  // bytes) keeps the request small.
-  sourceImagePath: string;
+  imageBase64: string;
+  mimeType?: string;
+  detection?: Record<string, unknown>;
+}
+
+interface CompanionMeta {
+  name: string;
+  coat_color: string;
+  pattern: string;
+  eye_color: string;
+  tail: string;
+  markings: string;
+  trait_id: string;
+  blurb: string;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") {
-    return json({ error: "method_not_allowed" }, 405);
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors() });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  // --- 1. Auth -------------------------------------------------------------
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+
+  // --- 1. Authenticate the caller ------------------------------------------
   const authHeader = req.headers.get("Authorization") ?? "";
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData.user) {
-    return json({ error: "unauthorized" }, 401);
-  }
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userData.user) return json({ error: "unauthorized" }, 401);
   const userId = userData.user.id;
+
+  if (!geminiKey) return json({ error: "generation_unconfigured" }, 503);
 
   let body: GenerateRequest;
   try {
@@ -50,44 +79,233 @@ Deno.serve(async (req: Request) => {
   } catch {
     return json({ error: "invalid_body" }, 400);
   }
+  if (!body.imageBase64) return json({ error: "missing_image" }, 400);
+  const mimeType = body.mimeType ?? "image/jpeg";
 
-  // --- 2. Rate limit + cost cap -------------------------------------------
-  // TODO(phase1): reject if the user is over their per-day generation budget.
-  //   Free-tier provider limits are the ceiling; keep caps below them.
+  // Service-role client for trusted server-side DB + storage writes.
+  const db = createClient(supabaseUrl, serviceKey);
 
-  // --- 3. Moderation -------------------------------------------------------
-  // TODO(phase1): run image moderation on the source BEFORE generation and
-  //   BEFORE deletion (deletion removes our ability to re-review later).
+  // --- 2. Per-user daily cap -----------------------------------------------
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await db
+    .from("cats")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", userId)
+    .gte("discovered_at", since);
+  if ((count ?? 0) >= DAILY_CAP) {
+    return json({ error: "daily_cap_reached", cap: DAILY_CAP }, 429);
+  }
 
-  // --- 4. Generate ---------------------------------------------------------
-  // TODO(phase1): call Gemini 2.5 Flash Image with GEMINI_API_KEY
-  //   (Deno.env, never shipped to the client) conditioned on the source photo.
+  // Record the capture up front so a failure is never silently lost.
+  const { data: capture, error: capErr } = await db
+    .from("captures")
+    .insert({
+      profile_id: userId,
+      status: "generating",
+      detection_result: body.detection ?? null,
+    })
+    .select("id")
+    .single();
+  if (capErr || !capture) {
+    return json({ error: "capture_write_failed", detail: capErr?.message }, 500);
+  }
+  const captureId = capture.id as string;
 
-  // --- 5. Background removal ----------------------------------------------
-  // TODO(phase1): rembg / on-device segmentation -> transparent PNG sprite.
+  try {
+    // --- 3. Generate the sprite --------------------------------------------
+    const sprite = await generateSprite(geminiKey, body.imageBase64, mimeType);
 
-  // --- 6. Persist ----------------------------------------------------------
-  // TODO(phase1): upload sprite to storage; insert cats + care_state rows;
-  //   set captures.status = 'complete'.
+    // --- 4. Extract descriptive metadata -----------------------------------
+    const meta = await describeCat(geminiKey, body.imageBase64, mimeType);
+    const traitId = TRAIT_IDS.includes(meta.trait_id as typeof TRAIT_IDS[number])
+      ? meta.trait_id
+      : TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)];
 
-  // --- 7. Delete source photo (ADR 0001) ----------------------------------
-  // TODO(phase1): remove body.sourceImagePath from storage regardless of the
-  //   generation outcome (except an open moderation case).
+    // --- 5. Store the sprite -----------------------------------------------
+    const path = `${userId}/${captureId}.png`;
+    const { error: upErr } = await db.storage
+      .from("sprites")
+      .upload(path, sprite, { contentType: "image/png", upsert: true });
+    if (upErr) throw new Error(`sprite_upload_failed: ${upErr.message}`);
+    const { data: pub } = db.storage.from("sprites").getPublicUrl(path);
+    const spriteUrl = pub.publicUrl;
 
-  return json(
-    {
-      status: "not_implemented",
-      message: "generate-companion is implemented in Phase 1",
-      captureId: body.captureId,
-      userId,
-    },
-    501,
-  );
+    // --- 6. Persist cat + care_state ---------------------------------------
+    const { data: cat, error: catErr } = await db
+      .from("cats")
+      .insert({
+        capture_id: captureId,
+        profile_id: userId,
+        name: meta.name,
+        sprite_url: spriteUrl,
+        trait_id: traitId,
+        generation_meta: {
+          coat_color: meta.coat_color,
+          pattern: meta.pattern,
+          eye_color: meta.eye_color,
+          tail: meta.tail,
+          markings: meta.markings,
+          blurb: meta.blurb,
+        },
+      })
+      .select("id, name, sprite_url, trait_id, generation_meta, discovered_at")
+      .single();
+    if (catErr || !cat) throw new Error(`cat_write_failed: ${catErr?.message}`);
+
+    await db.from("care_state").insert({ cat_id: cat.id, profile_id: userId });
+    await db.from("captures").update({ status: "complete" }).eq("id", captureId);
+
+    return json({ cat }, 200);
+  } catch (error) {
+    await db.from("captures").update({ status: "failed" }).eq("id", captureId);
+    const message = error instanceof Error ? error.message : String(error);
+    return json({ error: "generation_failed", detail: message }, 502);
+  }
 });
+
+// --- Gemini: image stylization ---------------------------------------------
+
+async function generateSprite(
+  key: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<Uint8Array> {
+  const prompt =
+    "Turn the cat in this photo into an adorable, cozy mobile-game companion " +
+    "sprite. Keep it recognizably the SAME cat: preserve its coat colour, fur " +
+    "pattern, eye colour, ear and tail shape, and any distinctive markings. " +
+    "Style: soft, warm, hand-illustrated chibi with gentle cel shading and a " +
+    "friendly expression. Full body, sitting or standing, centered, facing the " +
+    "viewer. Render on a fully transparent background. No text, no borders, no " +
+    "watermark, no drop shadow on the ground.";
+
+  const res = await fetch(`${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: imageBase64 } },
+        ],
+      }],
+      generationConfig: { responseModalities: ["IMAGE"] },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
+  }
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    const inline = part.inlineData ?? part.inline_data;
+    if (inline?.data) return decodeBase64(inline.data);
+  }
+  throw new Error("image_api_no_image");
+}
+
+// --- Gemini: descriptive metadata (structured JSON) ------------------------
+
+async function describeCat(
+  key: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<CompanionMeta> {
+  const prompt =
+    "Look at this cat and describe it as collectible game-companion attributes. " +
+    "Invent a short, cute, friendly name (1-2 words). Pick the single personality " +
+    "trait id that best fits its vibe. Keep every field concise.";
+
+  const schema = {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      coat_color: { type: "string" },
+      pattern: { type: "string" },
+      eye_color: { type: "string" },
+      tail: { type: "string" },
+      markings: { type: "string" },
+      trait_id: { type: "string", enum: [...TRAIT_IDS] },
+      blurb: { type: "string" },
+    },
+    required: [
+      "name", "coat_color", "pattern", "eye_color",
+      "tail", "markings", "trait_id", "blurb",
+    ],
+  };
+
+  const res = await fetch(`${GEMINI_BASE}/${TEXT_MODEL}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: imageBase64 } },
+        ],
+      }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      },
+    }),
+  });
+
+  if (!res.ok) return fallbackMeta();
+  try {
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+    const parsed = JSON.parse(text) as CompanionMeta;
+    if (!parsed.name) parsed.name = "Mystery Cat";
+    return parsed;
+  } catch {
+    return fallbackMeta();
+  }
+}
+
+function fallbackMeta(): CompanionMeta {
+  return {
+    name: "Mystery Cat",
+    coat_color: "unknown",
+    pattern: "unknown",
+    eye_color: "unknown",
+    tail: "unknown",
+    markings: "none noted",
+    trait_id: TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)],
+    blurb: "A cat of few words, but many mysteries.",
+  };
+}
+
+// --- helpers ---------------------------------------------------------------
+
+function decodeBase64(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function safeText(res: Response): Promise<string> {
+  try {
+    return (await res.text()).slice(0, 300);
+  } catch {
+    return "";
+  }
+}
+
+function cors(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 function json(payload: unknown, status: number): Response {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...cors() },
   });
 }

@@ -1,59 +1,96 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/supabase/supabase_providers.dart';
+import '../../features/catdex/domain/cat.dart';
 
-/// A generated companion returned by the server-side pipeline.
-class GeneratedCompanion {
-  const GeneratedCompanion({
-    required this.spriteUrl,
-    required this.generationMeta,
-  });
+/// Raised when companion generation fails. [message] is safe to show to the
+/// player; [code] is the machine-readable reason from the Edge Function.
+class GenerationException implements Exception {
+  const GenerationException(this.message, {this.code});
+  final String message;
+  final String? code;
 
-  /// CDN/storage URL of the transparent-background sprite.
-  final String spriteUrl;
-
-  /// Non-identifying descriptive attributes extracted during generation
-  /// (coat colour, pattern, eye colour, tail shape, distinctive markings).
-  final Map<String, dynamic> generationMeta;
+  @override
+  String toString() => 'GenerationException($code): $message';
 }
 
 /// Client-side contract for companion generation.
 ///
 /// The client NEVER calls the image provider directly. It calls our
-/// `generate-companion` Supabase Edge Function, which holds the provider key
-/// and enforces auth, rate limits, cost caps, and moderation (ADR 0001,
-/// docs/architecture/07-ai-pipeline.md). The raw photo is deleted server-side
-/// once generation succeeds.
+/// `generate-companion` Supabase Edge Function, which holds the provider key and
+/// enforces auth, the daily cap, and moderation (ADR 0001,
+/// docs/architecture/07-ai-pipeline.md). The raw photo is sent inline and is
+/// never persisted server-side.
 abstract interface class GenerationClient {
-  Future<GeneratedCompanion> generate({
-    required Uint8List acceptedImageBytes,
-    required String captureId,
+  Future<Cat> generate({
+    required Uint8List imageBytes,
+    String mimeType,
+    Map<String, dynamic>? detection,
   });
 }
 
-/// Edge Function-backed implementation. Body is stubbed in Phase 0 — the wiring
-/// and the "never call the provider from the client" boundary are what matter
-/// here.
+/// Edge Function-backed implementation.
 class EdgeFunctionGenerationClient implements GenerationClient {
   EdgeFunctionGenerationClient(this._ref);
 
   final Ref _ref;
 
   @override
-  Future<GeneratedCompanion> generate({
-    required Uint8List acceptedImageBytes,
-    required String captureId,
+  Future<Cat> generate({
+    required Uint8List imageBytes,
+    String mimeType = 'image/jpeg',
+    Map<String, dynamic>? detection,
   }) async {
-    // Phase 1: invoke the Edge Function, e.g.
-    //   final client = _ref.read(supabaseClientProvider);
-    //   final res = await client.functions.invoke('generate-companion', body: {...});
-    // For now, force callers to handle the not-yet-implemented state explicitly.
-    _ref.read(supabaseClientProvider); // keep the dependency wired
-    throw UnimplementedError(
-      'generate-companion Edge Function is implemented in Phase 1',
-    );
+    final client = _ref.read(supabaseClientProvider);
+    try {
+      final res = await client.functions.invoke(
+        'generate-companion',
+        body: {
+          'imageBase64': base64Encode(imageBytes),
+          'mimeType': mimeType,
+          if (detection != null) 'detection': detection,
+        },
+      );
+      final data = res.data;
+      if (data is! Map || data['cat'] is! Map) {
+        throw const GenerationException(
+          'We couldn\'t bring them to life just now. Please try again.',
+        );
+      }
+      return Cat.fromMap(Map<String, dynamic>.from(data['cat'] as Map));
+    } on FunctionException catch (error) {
+      throw GenerationException(
+        _friendlyMessage(error),
+        code: _codeFrom(error.details),
+      );
+    }
+  }
+
+  String? _codeFrom(dynamic details) {
+    if (details is Map && details['error'] is String) {
+      return details['error'] as String;
+    }
+    return null;
+  }
+
+  String _friendlyMessage(FunctionException error) {
+    final code = _codeFrom(error.details);
+    switch (code) {
+      case 'daily_cap_reached':
+        return 'You\'ve caught a lot of cats today! Come back tomorrow for more.';
+      case 'generation_unconfigured':
+        return 'Companion magic isn\'t switched on yet. Try again soon.';
+      case 'unauthorized':
+        return 'Please reopen the app and try catching again.';
+      case 'generation_failed':
+        return 'The magic fizzled this time — give it another try.';
+      default:
+        return 'Something went wrong bringing them to life. Please try again.';
+    }
   }
 }
 

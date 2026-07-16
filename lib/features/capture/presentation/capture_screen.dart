@@ -7,14 +7,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/router/app_router.dart';
+import '../../../services/generation/generation_client.dart';
+import '../../catdex/data/cats_repository.dart';
+import '../../catdex/domain/cat.dart';
 import '../application/capture_providers.dart';
 import '../domain/cat_detector.dart';
 
-/// The heart of Cat-ch: photograph a real cat, verify it on-device, and (soon)
-/// send it off to become a companion (docs/architecture/07-ai-pipeline.md).
+/// The heart of Cat-ch: photograph a real cat, verify it on-device, then send
+/// it to the `generate-companion` Edge Function to become a collectible
+/// companion (docs/architecture/07-ai-pipeline.md).
 ///
-/// Phase 1: live camera + on-device ML Kit detection gate. Generation is wired
-/// once the provider key is live in the `generate-companion` Edge Function.
+/// Stages: live camera → on-device ML Kit gate → generation → caught reveal →
+/// CatDex.
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
@@ -22,7 +27,16 @@ class CaptureScreen extends ConsumerStatefulWidget {
   ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-enum _Stage { initializing, permissionDenied, unavailable, ready, analyzing, result }
+enum _Stage {
+  initializing,
+  permissionDenied,
+  unavailable,
+  ready,
+  analyzing,
+  result,
+  generating,
+  caught,
+}
 
 class _CaptureScreenState extends ConsumerState<CaptureScreen>
     with WidgetsBindingObserver {
@@ -31,6 +45,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   CatDetectionResult? _result;
   String? _capturedPath;
   String? _message;
+  Cat? _caughtCat;
 
   @override
   void initState() {
@@ -49,13 +64,20 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
     if (state == AppLifecycleState.inactive) {
-      unawaited(controller.dispose());
-      _controller = null;
+      final controller = _controller;
+      if (controller != null && controller.value.isInitialized) {
+        unawaited(controller.dispose());
+        _controller = null;
+      }
     } else if (state == AppLifecycleState.resumed) {
-      unawaited(_initCamera());
+      // Only revive the camera when it's the surface on screen; the result and
+      // caught screens don't need it.
+      final onCameraSurface =
+          _stage == _Stage.ready || _stage == _Stage.initializing;
+      if (onCameraSurface && _controller == null) {
+        unawaited(_initCamera());
+      }
     }
   }
 
@@ -135,19 +157,58 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     setState(() {
       _result = null;
       _capturedPath = null;
+      _caughtCat = null;
       _stage = _Stage.ready;
     });
+    // The camera may have been released (e.g. backgrounded during the result
+    // screen); bring it back so the preview isn't a dead spinner.
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      unawaited(_initCamera());
+    }
   }
 
-  void _onKeep() {
-    // Generation is wired next (needs the provider key live in the Edge
-    // Function). For now, acknowledge and return to the camera.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Lovely catch! Bringing them to life is coming next.'),
-      ),
-    );
-    _retake();
+  /// Send the accepted photo to the `generate-companion` Edge Function, which
+  /// turns it into a companion and stores it in the CatDex.
+  Future<void> _onKeep() async {
+    final path = _capturedPath;
+    final result = _result;
+    if (path == null || result == null) return;
+
+    setState(() => _stage = _Stage.generating);
+    try {
+      final bytes = await File(path).readAsBytes();
+      final cat = await ref.read(generationClientProvider).generate(
+        imageBytes: bytes,
+        detection: {
+          'is_cat': result.isCat,
+          'confidence': result.confidence,
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _caughtCat = cat;
+        _stage = _Stage.caught;
+      });
+    } on GenerationException catch (error) {
+      _showGenerationError(error.message);
+    } catch (_) {
+      _showGenerationError(
+        'Something went wrong bringing them to life. Please try again.',
+      );
+    }
+  }
+
+  void _showGenerationError(String message) {
+    if (!mounted) return;
+    setState(() => _stage = _Stage.result);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _goToCatDex() {
+    ref.invalidate(catsProvider);
+    context.go(AppRoutes.catdex);
   }
 
   @override
@@ -215,7 +276,138 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         return _buildPreview(context);
       case _Stage.result:
         return _buildResult(context);
+      case _Stage.generating:
+        return _buildGenerating(context);
+      case _Stage.caught:
+        return _buildCaught(context);
     }
+  }
+
+  Widget _buildGenerating(BuildContext context) {
+    final path = _capturedPath;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (path != null)
+          Image.file(File(path), fit: BoxFit.cover)
+        else
+          const ColoredBox(color: Colors.black),
+        Container(color: Colors.black.withValues(alpha: 0.55)),
+        const _Centered(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text(
+                'Bringing your cat to life…',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'This can take a few seconds.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCaught(BuildContext context) {
+    final cat = _caughtCat;
+    if (cat == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const Spacer(),
+              Text(
+                'Caught!',
+                style: theme.textTheme.headlineSmall
+                    ?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                flex: 6,
+                child: cat.spriteUrl == null
+                    ? const Icon(Icons.pets, color: Colors.white70, size: 96)
+                    : Image.network(
+                        cat.spriteUrl!,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, progress) =>
+                            progress == null
+                                ? child
+                                : const _Centered(
+                                    child: CircularProgressIndicator()),
+                        errorBuilder: (context, _, __) => const Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white54,
+                            size: 72),
+                      ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                cat.name,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium
+                    ?.copyWith(color: Colors.white),
+              ),
+              if (cat.traitLabel != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  cat.traitLabel!,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+              if (cat.blurb != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  cat.blurb!,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: Colors.white70),
+                ),
+              ],
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _retake,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Catch another'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _goToCatDex,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('See in CatDex'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPreview(BuildContext context) {
