@@ -301,11 +301,23 @@ async function generateSpriteCloudflare(
   imageBase64: string,
   _mimeType: string,
 ): Promise<Uint8Array> {
-  // Stable Diffusion responds best to compact, comma-separated style tags.
+  // Pokémon-style creature art: a single centered character with clean bold
+  // outlines and vibrant cel shading on a plain background. Stable Diffusion
+  // responds best to compact, comma-separated style tags.
   const prompt =
-    "cute chibi cat game companion, cozy hand-drawn sprite, soft cel shading, " +
-    "warm pastel palette, big friendly eyes, centered, full body, simple soft " +
-    "background, high quality, adorable";
+    "official Pokemon-style creature sprite of a single cute cat, " +
+    "monster-collecting game character art, clean thick bold outlines, " +
+    "bright vibrant saturated colors, smooth cel shading, big expressive eyes, " +
+    "full body, centered, facing viewer, plain solid pastel background, crisp, " +
+    "high quality, adorable";
+  // The negative prompt is what actually kills the earlier artifacts — the
+  // floating extra cat-faces, duplicates, text, and busy/decorated backgrounds.
+  const negativePrompt =
+    "multiple animals, two cats, extra cats, floating faces, duplicate heads, " +
+    "extra heads, text, letters, watermark, logo, signature, busy background, " +
+    "cluttered, decorations, stickers, frame, border, photorealistic, realistic " +
+    "photo, blurry, grainy, deformed, extra limbs, extra tails, low quality, " +
+    "jpeg artifacts";
 
   // Prefer img2img so the sprite echoes the real cat's colours/markings. Some
   // SDXL endpoints are slow or unreliable when handed a source image, so if that
@@ -314,9 +326,11 @@ async function generateSpriteCloudflare(
   try {
     return await cfImageRun(accountId, token, {
       prompt,
-      // strength ~0.6 restyles firmly while still echoing the source photo.
+      negative_prompt: negativePrompt,
+      // strength ~0.65 restyles assertively toward the creature look while still
+      // echoing the source photo's coat colour and markings.
       image_b64: imageBase64,
-      strength: 0.6,
+      strength: 0.65,
       guidance: 7.5,
     });
   } catch (error) {
@@ -324,7 +338,11 @@ async function generateSpriteCloudflare(
     console.log(
       `[gen] cloudflare img2img failed (${message}); retrying text-to-image`,
     );
-    return await cfImageRun(accountId, token, { prompt, guidance: 7.5 });
+    return await cfImageRun(accountId, token, {
+      prompt,
+      negative_prompt: negativePrompt,
+      guidance: 7.5,
+    });
   }
 }
 
