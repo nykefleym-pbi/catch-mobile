@@ -5,19 +5,26 @@
 //
 //   1. Authenticate the caller (anonymous sign-in users are authenticated).
 //   2. Enforce a gentle per-user/day generation cap (free-tier friendly).
-//   3. Generate a stylized companion with Gemini 2.5 Flash Image, conditioned on
-//      the source photo so it echoes the real cat's colours/markings.
-//   4. Extract non-identifying descriptive metadata (coat, pattern, eyes, tail,
-//      markings, a personality trait, a name).
+//   3. Generate a stylized companion from the source photo so it echoes the real
+//      cat's colours/markings.
+//   4. Attach descriptive metadata (coat, pattern, eyes, tail, markings, a
+//      personality trait, a name).
 //   5. Store the sprite in the public `sprites` bucket.
 //   6. Persist cats + care_state; mark the capture complete.
+//
+// PROVIDER is pluggable via the IMAGE_PROVIDER env var:
+//   - "cloudflare" (default) → Cloudflare Workers AI Stable-Diffusion img2img
+//     (free within a daily allowance) + locally-generated metadata.
+//   - "gemini" → Gemini 2.5 Flash Image ("nano-banana") + Gemini JSON metadata.
+//     Kept fully wired so we can switch back once Gemini billing is enabled.
 //
 // PRIVACY: the raw source photo is sent inline and is NEVER written to storage.
 // Generation happens in-memory and the bytes are discarded when the request
 // ends — the strongest form of "delete the source after generation".
 //
-// Gemini safety filters are the moderation backstop for this slice; dedicated
-// image moderation and true alpha-cutout (rembg) are hardening follow-ups.
+// The provider's own safety filters are the moderation backstop for this slice;
+// dedicated image moderation and true alpha-cutout (rembg) are hardening
+// follow-ups.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -34,9 +41,21 @@ const DAILY_CAP = 30;
 const IMAGE_TIMEOUT_MS = 75_000;
 const TEXT_TIMEOUT_MS = 25_000;
 
+// Which backend generates the sprite. Defaults to Cloudflare so the app works
+// on a free tier; set IMAGE_PROVIDER=gemini to use nano-banana instead.
+const IMAGE_PROVIDER = (Deno.env.get("IMAGE_PROVIDER") ?? "cloudflare").toLowerCase();
+
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
 const TEXT_MODEL = "gemini-2.5-flash";
+
+// Cloudflare Workers AI: img2img so the sprite is conditioned on the real photo.
+// SDXL-Lightning is fast and accepts a base64 source image; override the model
+// via CLOUDFLARE_IMAGE_MODEL (e.g. @cf/runwayml/stable-diffusion-v1-5-img2img).
+const CF_BASE = "https://api.cloudflare.com/client/v4/accounts";
+const CF_IMAGE_MODEL =
+  Deno.env.get("CLOUDFLARE_IMAGE_MODEL") ??
+  "@cf/bytedance/stable-diffusion-xl-lightning";
 
 interface GenerateRequest {
   imageBase64: string;
@@ -66,6 +85,8 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  const cfAccount = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
+  const cfToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
 
   // --- 1. Authenticate the caller ------------------------------------------
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -80,8 +101,14 @@ Deno.serve(async (req: Request) => {
   const userId = userData.user.id;
   log(`authed user ${userId}`);
 
-  if (!geminiKey) {
-    log("GEMINI_API_KEY missing");
+  // The active provider must have its credentials configured.
+  if (IMAGE_PROVIDER === "gemini") {
+    if (!geminiKey) {
+      log("GEMINI_API_KEY missing");
+      return json({ error: "generation_unconfigured" }, 503);
+    }
+  } else if (!cfAccount || !cfToken) {
+    log("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN missing");
     return json({ error: "generation_unconfigured" }, 503);
   }
 
@@ -126,11 +153,22 @@ Deno.serve(async (req: Request) => {
 
   try {
     // --- 3. Generate the sprite --------------------------------------------
-    const sprite = await generateSprite(geminiKey, body.imageBase64, mimeType);
-    log(`sprite generated (${sprite.byteLength} bytes)`);
+    const sprite = IMAGE_PROVIDER === "gemini"
+      ? await generateSpriteGemini(geminiKey!, body.imageBase64, mimeType)
+      : await generateSpriteCloudflare(
+        cfAccount!,
+        cfToken!,
+        body.imageBase64,
+        mimeType,
+      );
+    log(`sprite generated (${sprite.byteLength} bytes via ${IMAGE_PROVIDER})`);
 
-    // --- 4. Extract descriptive metadata -----------------------------------
-    const meta = await describeCat(geminiKey, body.imageBase64, mimeType);
+    // --- 4. Attach descriptive metadata ------------------------------------
+    // Gemini can read the photo into structured attributes; Stable Diffusion
+    // can't, so the Cloudflare path names the cat locally.
+    const meta = IMAGE_PROVIDER === "gemini"
+      ? await describeCat(geminiKey!, body.imageBase64, mimeType)
+      : localMeta();
     const traitId = TRAIT_IDS.includes(meta.trait_id as typeof TRAIT_IDS[number])
       ? meta.trait_id
       : TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)];
@@ -186,9 +224,54 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+// --- Cloudflare Workers AI: image stylization (img2img) --------------------
+
+async function generateSpriteCloudflare(
+  accountId: string,
+  token: string,
+  imageBase64: string,
+  _mimeType: string,
+): Promise<Uint8Array> {
+  // Stable Diffusion responds best to compact, comma-separated style tags.
+  const prompt =
+    "cute chibi cat game companion, cozy hand-drawn sprite, soft cel shading, " +
+    "warm pastel palette, big friendly eyes, centered, full body, simple soft " +
+    "background, high quality, adorable";
+
+  const res = await fetchWithTimeout(
+    `${CF_BASE}/${accountId}/ai/run/${CF_IMAGE_MODEL}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        // img2img: condition on the real photo so coat colour and markings carry
+        // through. strength ~0.6 restyles firmly while still echoing the source.
+        image_b64: imageBase64,
+        strength: 0.6,
+        guidance: 7.5,
+      }),
+    },
+    IMAGE_TIMEOUT_MS,
+  );
+
+  // On success SD models stream raw PNG bytes; on failure Cloudflare returns a
+  // JSON error envelope. Branch on that so failures surface a readable message.
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || contentType.includes("application/json")) {
+    throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength === 0) throw new Error("image_api_empty_response");
+  return bytes;
+}
+
 // --- Gemini: image stylization ---------------------------------------------
 
-async function generateSprite(
+async function generateSpriteGemini(
   key: string,
   imageBase64: string,
   mimeType: string,
@@ -311,6 +394,42 @@ function fallbackMeta(): CompanionMeta {
     markings: "none noted",
     trait_id: TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)],
     blurb: "A cat of few words, but many mysteries.",
+  };
+}
+
+// Cozy names for the Cloudflare path, where the image model can't read the photo
+// into attributes. Keeps every catch feeling distinct instead of "Mystery Cat".
+const LOCAL_NAMES = [
+  "Mochi", "Biscuit", "Pumpkin", "Waffles", "Pepper", "Marshmallow", "Clover",
+  "Nimbus", "Peaches", "Sesame", "Ziggy", "Butter", "Pickles", "Maple",
+  "Dumpling", "Snickers", "Cinnamon", "Toffee", "Noodle", "Pudding", "Gizmo",
+  "Bramble", "Poppy", "Tofu", "Muffin", "Hazel", "Nugget", "Basil", "Clementine",
+  "Sprout", "Custard", "Jellybean", "Pebble", "Cricket", "Tater", "Blossom",
+  "Cocoa", "Dill", "Fig", "Honey",
+];
+
+const LOCAL_BLURBS = [
+  "Found mid-adventure and ready for a cozy new chapter.",
+  "Small paws, big personality — an instant favourite.",
+  "Wandered in from the neighbourhood with plenty of charm.",
+  "Curled up in your journal like it always belonged there.",
+  "A soft-hearted explorer with a knack for finding sunbeams.",
+];
+
+function pick<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function localMeta(): CompanionMeta {
+  return {
+    name: pick(LOCAL_NAMES),
+    coat_color: "unknown",
+    pattern: "unknown",
+    eye_color: "unknown",
+    tail: "unknown",
+    markings: "none noted",
+    trait_id: pick(TRAIT_IDS),
+    blurb: pick(LOCAL_BLURBS),
   };
 }
 

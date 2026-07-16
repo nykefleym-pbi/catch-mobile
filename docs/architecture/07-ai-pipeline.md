@@ -88,13 +88,26 @@ guarantee:
   prompt/conditioning/model choice.
 - Every generated cat should still be **visually unique**.
 
-**Provider (decided — free-first, [ADR 0001](../decisions/0001-image-generation.md)):**
-primary is **Google Gemini "2.5 Flash Image" (AI Studio free tier)**, with
-**Cloudflare Workers AI** as fallback. Free image models generally output on a solid
-background, so we produce the transparent sprite ourselves as a post-step with
-**`rembg`** (open-source) or on-device subject segmentation:
-`photo → stylize → background removal → transparent PNG`. The Edge-Function boundary
-keeps the provider swappable.
+**Provider (pluggable — free-first, [ADR 0001](../decisions/0001-image-generation.md)):**
+the Edge Function selects a backend at runtime via the `IMAGE_PROVIDER` env var,
+so the provider is swappable without a client change:
+
+- **`cloudflare` (current default)** — **Cloudflare Workers AI** Stable-Diffusion
+  **img2img** (`@cf/bytedance/stable-diffusion-xl-lightning`, overridable via
+  `CLOUDFLARE_IMAGE_MODEL`). Genuinely free within a daily allowance. The source
+  photo is passed as `image_b64` at `strength ~0.6` so coat colour and markings
+  carry through while the model restyles. Metadata (name + trait) is generated
+  locally, since SD can't read the photo into attributes.
+- **`gemini` (switchable)** — **Google Gemini "2.5 Flash Image"** ("nano-banana")
+  for the sprite plus Gemini structured-JSON for descriptive metadata. Kept fully
+  wired; requires Gemini API billing (its free tier yields effectively no image
+  quota). Set `IMAGE_PROVIDER=gemini` to switch back.
+
+Free/SD image models generally output on a solid background, and SD img2img is
+lower and less consistent in quality than nano-banana. Producing a truly
+transparent sprite via **`rembg`** (open-source) or on-device subject segmentation
+(`photo → stylize → background removal → transparent PNG`) remains a hardening
+follow-up.
 
 ### Animation (later)
 
