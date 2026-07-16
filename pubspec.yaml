@@ -31,8 +31,12 @@ dependencies:
   camera: ^0.11.0                      # in-game camera
   google_mlkit_image_labeling: ^0.13.0 # on-device "is this a real cat?" gate
 
-  # --- Later phases (enable when building map / exploration) ---
-  # google_maps_flutter: ^2.7.0          # cozy map & exploration
+  # --- Explore map ---
+  # OpenStreetMap tiles via flutter_map — free, no API key required (keeps the
+  # free-first spirit of the Cloudflare generation choice).
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.1                  # "locate me" on the map
 
 dev_dependencies:
   flutter_test:

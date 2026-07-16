@@ -31,9 +31,9 @@ jobs:
         run: flutter create . --org com.example --platforms=android
 
       # The generated manifest has no runtime permissions. The capture flow needs
-      # the camera; declare it (and mark the hardware optional so the app still
-      # installs on camera-less devices). Later phases add location here too.
-      - name: Add camera permission to manifest
+      # the camera; the Explore map needs location. Declare both (camera hardware
+      # is marked optional so the app still installs on camera-less devices).
+      - name: Add camera + location permissions to manifest
         run: |
           manifest=android/app/src/main/AndroidManifest.xml
           python3 - "$manifest" <<'PY'
@@ -45,13 +45,17 @@ jobs:
               '    <uses-permission android:name="android.permission.CAMERA" />\n'
               '    <uses-feature android:name="android.hardware.camera" '
               'android:required="false" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.ACCESS_FINE_LOCATION" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.ACCESS_COARSE_LOCATION" />\n'
           )
           anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
           assert anchor in src, "manifest anchor not found"
           src = src.replace(anchor, anchor + "\n" + perms, 1)
           with open(path, "w") as f:
               f.write(src)
-          print("camera permission added")
+          print("camera + location permissions added")
           PY
 
       - name: Install dependencies
