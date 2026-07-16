@@ -176,7 +176,12 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`generation_failed: ${message}`);
-    await db.from("captures").update({ status: "failed" }).eq("id", captureId);
+    // Persist the reason on the capture so failures are diagnosable via SQL
+    // even without access to function stdout.
+    await db.from("captures").update({
+      status: "failed",
+      detection_result: { ...(body.detection ?? {}), error: message },
+    }).eq("id", captureId);
     return json({ error: "generation_failed", detail: message }, 502);
   }
 });
@@ -209,7 +214,9 @@ async function generateSprite(
             { inline_data: { mime_type: mimeType, data: imageBase64 } },
           ],
         }],
-        generationConfig: { responseModalities: ["IMAGE"] },
+        // Image models are multimodal-by-design: IMAGE-only is rejected, so we
+        // must ask for TEXT + IMAGE and pick the image part out of the reply.
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
       }),
     },
     IMAGE_TIMEOUT_MS,
