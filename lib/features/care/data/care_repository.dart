@@ -19,12 +19,14 @@ class CareRepository {
         .select(_columns)
         .eq('cat_id', catId)
         .maybeSingle();
-    if (row == null) return CareState.initial(catId);
-    return CareState.fromMap(Map<String, dynamic>.from(row));
+    final friendship = await _fetchFriendship(catId);
+    if (row == null) return CareState.initial(catId, friendship: friendship);
+    return CareState.fromMap(Map<String, dynamic>.from(row), friendship: friendship);
   }
 
-  /// Persists [next] (upsert on the `cat_id` primary key) and returns the stored
-  /// row so the UI reflects exactly what the database now holds.
+  /// Persists [next]: the needs go to `care_state` (upsert on the `cat_id`
+  /// primary key) and the bond to `cats.friendship_level`. Returns the stored
+  /// state so the UI reflects exactly what the database now holds.
   Future<CareState> persist(CareState next) async {
     final client = _ref.read(supabaseClientProvider);
     final profileId = client.auth.currentUser?.id;
@@ -33,7 +35,25 @@ class CareRepository {
         .upsert(next.toRow(profileId), onConflict: 'cat_id')
         .select(_columns)
         .single();
-    return CareState.fromMap(Map<String, dynamic>.from(row));
+    final catRow = await client
+        .from('cats')
+        .update({'friendship_level': next.friendship})
+        .eq('id', next.catId)
+        .select('friendship_level')
+        .single();
+    final friendship =
+        (catRow['friendship_level'] as num?)?.toInt() ?? next.friendship;
+    return CareState.fromMap(Map<String, dynamic>.from(row), friendship: friendship);
+  }
+
+  Future<int> _fetchFriendship(String catId) async {
+    final client = _ref.read(supabaseClientProvider);
+    final row = await client
+        .from('cats')
+        .select('friendship_level')
+        .eq('id', catId)
+        .maybeSingle();
+    return (row?['friendship_level'] as num?)?.toInt() ?? 0;
   }
 }
 
