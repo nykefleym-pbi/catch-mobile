@@ -63,7 +63,7 @@ void main() {
     });
 
     test('fromMap tolerates missing fields', () {
-      final care = CareState.fromMap({'cat_id': 'cat-9'});
+      final care = CareState.fromMap(const {'cat_id': 'cat-9'});
       expect(care.catId, 'cat-9');
       expect(care.hunger, 100);
       expect(care.happiness, 100);
