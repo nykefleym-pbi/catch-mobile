@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/capture/presentation/capture_screen.dart';
+import '../../features/catdex/domain/cat.dart';
+import '../../features/catdex/presentation/cat_detail_screen.dart';
 import '../../features/catdex/presentation/catdex_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/map/presentation/map_screen.dart';
@@ -15,6 +17,10 @@ class AppRoutes {
   static const catdex = '/catdex';
   static const capture = '/capture';
   static const profile = '/profile';
+  static const catDetail = '/cat';
+
+  /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
+  static String catDetailPath(String id) => '$catDetail/$id';
 }
 
 final GoRouter appRouter = GoRouter(
@@ -24,6 +30,15 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.capture,
       builder: (context, state) => const CaptureScreen(),
+    ),
+    // A single cat's detail + care page, pushed over the shell. The Cat is
+    // handed over via `extra` from the CatDex to avoid a refetch.
+    GoRoute(
+      path: '${AppRoutes.catDetail}/:id',
+      builder: (context, state) => CatDetailScreen(
+        catId: state.pathParameters['id']!,
+        cat: state.extra as Cat?,
+      ),
     ),
     // Bottom-nav shell wrapping the primary destinations.
     ShellRoute(

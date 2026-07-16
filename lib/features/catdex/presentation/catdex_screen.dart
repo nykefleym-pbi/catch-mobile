@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/router/app_router.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -89,7 +91,9 @@ class _CatCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.catDetailPath(cat.id), extra: cat),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
@@ -140,6 +144,7 @@ class _CatCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
