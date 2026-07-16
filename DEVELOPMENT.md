@@ -22,8 +22,12 @@ bodies (camera, map, detection, generation) land in Phase 1.
    Flutter tooling):
 
    ```bash
-   flutter create . --org com.example.catch --platforms=android,ios
+   flutter create . --org com.example --platforms=android,ios
    ```
+
+   > Not developing locally? You don't need this — the **Build Android APK**
+   > GitHub Actions workflow generates the platform folder and produces an
+   > installable `app-debug.apk` artifact you can download and sideload.
 
    This adds `android/` and `ios/` without touching `lib/`, `pubspec.yaml`, or
    the tests.
