@@ -301,37 +301,44 @@ async function generateSpriteCloudflare(
   imageBase64: string,
   _mimeType: string,
 ): Promise<Uint8Array> {
-  // Pokémon-style creature art: a single centered character with clean bold
-  // outlines and vibrant cel shading on a plain background. Stable Diffusion
-  // responds best to compact, comma-separated style tags.
+  // Clean cel-shaded game-sprite look (the "Pokémon-ish" art language) but with
+  // FIDELITY prioritised: the sprite must stay recognisably the same cat, so the
+  // prompt asks to preserve the real coat colour/markings and explicitly avoids
+  // "vibrant/saturated" cues that make Stable Diffusion invent fantasy colours.
+  // SD responds best to compact, comma-separated style tags.
   const prompt =
-    "official Pokemon-style creature sprite of a single cute cat, " +
-    "monster-collecting game character art, clean thick bold outlines, " +
-    "bright vibrant saturated colors, smooth cel shading, big expressive eyes, " +
-    "full body, centered, facing viewer, plain solid pastel background, crisp, " +
-    "high quality, adorable";
-  // The negative prompt is what actually kills the earlier artifacts — the
-  // floating extra cat-faces, duplicates, text, and busy/decorated backgrounds.
+    "cute cartoon cat, clean cel-shaded creature-collector game sprite, " +
+    "soft bold outlines, gentle smooth shading, big friendly eyes, full body, " +
+    "sitting, centered, facing viewer, keep the cat's real natural fur colour " +
+    "and markings, natural realistic cat colours, plain flat solid pastel " +
+    "background, high quality, adorable";
+  // Negatives do the heavy lifting: kill invented fantasy colours (Butter went
+  // purple/teal, Gizmo lost its white), background glows/halos (Gizmo's circle),
+  // and the earlier floating-face / duplicate artifacts.
   const negativePrompt =
-    "multiple animals, two cats, extra cats, floating faces, duplicate heads, " +
-    "extra heads, text, letters, watermark, logo, signature, busy background, " +
-    "cluttered, decorations, stickers, frame, border, photorealistic, realistic " +
-    "photo, blurry, grainy, deformed, extra limbs, extra tails, low quality, " +
-    "jpeg artifacts";
+    "unnatural fur color, neon colors, purple fur, teal fur, blue fur, rainbow, " +
+    "oversaturated, fantasy creature, monster, glow, halo, circle, spotlight, " +
+    "radial gradient, background pattern, decorations, stickers, multiple " +
+    "animals, two cats, extra cats, floating faces, duplicate heads, extra " +
+    "heads, text, letters, watermark, logo, signature, frame, border, " +
+    "photorealistic, realistic photo, blurry, grainy, deformed, extra limbs, " +
+    "extra tails, low quality, jpeg artifacts";
 
-  // Prefer img2img so the sprite echoes the real cat's colours/markings. Some
-  // SDXL endpoints are slow or unreliable when handed a source image, so if that
-  // attempt errors or times out we fall back to text-to-image — a cozy sprite
-  // still beats a failed catch. (The metadata is generated locally either way.)
+  // Prefer img2img so the sprite echoes the real cat's colours/markings. A LOWER
+  // strength keeps it closer to the source photo (SD img2img: higher strength =
+  // further from the input), which is what preserves the real cat. Some SDXL
+  // endpoints are slow/unreliable with a source image, so if img2img errors or
+  // times out we fall back to text-to-image — a cozy sprite still beats a failed
+  // catch. (The metadata is generated locally either way.)
   try {
     return await cfImageRun(accountId, token, {
       prompt,
       negative_prompt: negativePrompt,
-      // strength ~0.65 restyles assertively toward the creature look while still
-      // echoing the source photo's coat colour and markings.
+      // strength ~0.45 restyles into a clean sprite while staying close enough to
+      // the source that the cat's real coat colour and markings carry through.
       image_b64: imageBase64,
-      strength: 0.65,
-      guidance: 7.5,
+      strength: 0.45,
+      guidance: 7.0,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -341,7 +348,7 @@ async function generateSpriteCloudflare(
     return await cfImageRun(accountId, token, {
       prompt,
       negative_prompt: negativePrompt,
-      guidance: 7.5,
+      guidance: 7.0,
     });
   }
 }
