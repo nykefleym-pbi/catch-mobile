@@ -121,7 +121,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     Marker(
                       point: LatLng(cat.lat!, cat.lng!),
                       width: 56,
-                      height: 56,
+                      height: 66,
+                      // Anchor the pin's tip on the actual spot.
+                      alignment: Alignment.topCenter,
                       child: _CatPin(
                         cat: cat,
                         color: theme.colorScheme.primary,
