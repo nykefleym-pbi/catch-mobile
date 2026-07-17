@@ -18,6 +18,7 @@ updated in isolation.
 | 8 | [08-ethics-privacy-safety.md](08-ethics-privacy-safety.md) | Enforceable ethical rules, location privacy, moderation, minors |
 | 9 | [09-monetization-and-impact.md](09-monetization-and-impact.md) | Revenue model, donation structure, transparency reporting |
 | 10 | [10-risks-and-open-questions.md](10-risks-and-open-questions.md) | Risk register and unresolved decisions |
+| — | [design/claude-design-brief.md](design/claude-design-brief.md) | Paste-ready prompt pack for generating reference UI designs (shipped + roadmap screens) in Claude Design |
 | — | [decisions/](decisions/README.md) | Architecture Decision Records (ADRs) — dated log of decisions as we make them |
 
 ## Key decisions already made

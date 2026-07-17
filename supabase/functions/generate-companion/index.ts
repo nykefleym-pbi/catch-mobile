@@ -326,22 +326,26 @@ async function generateSpriteCloudflare(
   // "vibrant/saturated" cues that make Stable Diffusion invent fantasy colours.
   // SD responds best to compact, comma-separated style tags.
   const prompt =
-    "cute cartoon cat, clean cel-shaded creature-collector game sprite, " +
-    "soft bold outlines, gentle smooth shading, big friendly eyes, full body, " +
-    "sitting, centered, facing viewer, keep the cat's real natural fur colour " +
-    "and markings, natural realistic cat colours, plain flat solid pastel " +
-    "background, high quality, adorable";
+    "cute chibi cartoon cat, flat 2d storybook illustration, clean " +
+    "creature-collector game sprite, thick soft outlines, flat matte cel " +
+    "shading, big friendly eyes, full body, sitting, centered, facing viewer, " +
+    "keep the cat's real natural fur colour and markings, natural realistic " +
+    "cat colours, plain solid soft cream background, adorable, high quality";
   // Negatives do the heavy lifting: kill invented fantasy colours (Butter went
   // purple/teal, Gizmo lost its white), background glows/halos (Gizmo's circle),
-  // and the earlier floating-face / duplicate artifacts.
+  // and the earlier floating-face / duplicate artifacts. The photoreal/painterly
+  // block pushes the output toward flat cartoon (Pebble came back semi-realistic)
+  // WITHOUT raising img2img strength, which is what drifts the real cat's colour.
   const negativePrompt =
+    "photorealistic, realistic photo, 3d render, painterly, semi-realistic, " +
+    "hyperrealistic, detailed fur texture, individual fur strands, " +
     "unnatural fur color, neon colors, purple fur, teal fur, blue fur, rainbow, " +
     "oversaturated, fantasy creature, monster, glow, halo, circle, spotlight, " +
     "radial gradient, background pattern, decorations, stickers, multiple " +
     "animals, two cats, extra cats, floating faces, duplicate heads, extra " +
     "heads, text, letters, watermark, logo, signature, frame, border, " +
-    "photorealistic, realistic photo, blurry, grainy, deformed, extra limbs, " +
-    "extra tails, low quality, jpeg artifacts";
+    "blurry, grainy, deformed, extra limbs, extra tails, low quality, " +
+    "jpeg artifacts";
 
   // Prefer img2img so the sprite echoes the real cat's colours/markings. A LOWER
   // strength keeps it closer to the source photo (SD img2img: higher strength =
@@ -357,7 +361,9 @@ async function generateSpriteCloudflare(
       // the source that the cat's real coat colour and markings carry through.
       image_b64: imageBase64,
       strength: 0.45,
-      guidance: 7.0,
+      // Higher guidance makes SD follow the cartoon prompt harder — more
+      // stylised — without the colour drift a higher strength would cause.
+      guidance: 8.0,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -367,7 +373,7 @@ async function generateSpriteCloudflare(
     return await cfImageRun(accountId, token, {
       prompt,
       negative_prompt: negativePrompt,
-      guidance: 7.0,
+      guidance: 8.0,
     });
   }
 }
