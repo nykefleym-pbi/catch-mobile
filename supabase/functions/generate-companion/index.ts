@@ -68,6 +68,19 @@ interface GenerateRequest {
   imageBase64: string;
   mimeType?: string;
   detection?: Record<string, unknown>;
+  // Coarse "where you met them" location for the Explore map. Optional — a catch
+  // with location off omits these. Fuzzed to ~1 km before persistence (below).
+  lat?: number;
+  lng?: number;
+}
+
+// Round a device coordinate to a neighbourhood-level point (~1.1 km at 2 dp)
+// before it is stored. Precise coordinates are never persisted (ADR 0001).
+// Returns null for anything out of range or not a finite number.
+function fuzzCoord(value: unknown, max: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  if (value < -max || value > max) return null;
+  return Math.round(value * 100) / 100;
 }
 
 interface CompanionMeta {
@@ -139,6 +152,8 @@ Deno.serve(async (req: Request) => {
   }
   if (!body.imageBase64) return json({ error: "missing_image" }, 400);
   const mimeType = body.mimeType ?? "image/jpeg";
+  const geoLat = fuzzCoord(body.lat, 90);
+  const geoLng = fuzzCoord(body.lng, 180);
   log(`body parsed, image ~${Math.round(body.imageBase64.length / 1024)}KB b64`);
 
   const db = createClient(supabaseUrl, serviceKey);
@@ -246,8 +261,12 @@ Deno.serve(async (req: Request) => {
             markings: meta.markings,
             blurb: meta.blurb,
           },
+          geo_lat: geoLat,
+          geo_lng: geoLng,
         })
-        .select("id, name, sprite_url, trait_id, generation_meta, discovered_at")
+        .select(
+          "id, name, sprite_url, trait_id, generation_meta, geo_lat, geo_lng, discovered_at",
+        )
         .single(),
       DB_TIMEOUT_MS,
       "cat_insert",

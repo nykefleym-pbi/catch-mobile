@@ -10,6 +10,8 @@ class Cat {
     this.traitId,
     this.generationMeta = const {},
     this.discoveredAt,
+    this.lat,
+    this.lng,
   });
 
   final String id;
@@ -18,6 +20,14 @@ class Cat {
   final String? traitId;
   final Map<String, dynamic> generationMeta;
   final DateTime? discoveredAt;
+
+  /// Coarse, privacy-fuzzed coordinates of where this cat was met (~1 km).
+  /// Null when the catch was made with location off. Used only for the map pin.
+  final double? lat;
+  final double? lng;
+
+  /// Whether this cat can be dropped on the Explore map.
+  bool get hasLocation => lat != null && lng != null;
 
   /// Human-friendly trait label (e.g. 'foodie' -> 'Foodie'). Falls back to a
   /// title-cased id for any trait added server-side we don't know about yet.
@@ -46,8 +56,17 @@ class Cat {
       generationMeta:
           rawMeta is Map ? Map<String, dynamic>.from(rawMeta) : const {},
       discoveredAt: discovered is String ? DateTime.tryParse(discovered) : null,
+      lat: _toDouble(map['geo_lat']),
+      lng: _toDouble(map['geo_lng']),
     );
   }
+}
+
+/// Numeric columns can arrive as [int], [double], or a string over the wire.
+double? _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
 }
 
 const Map<String, String> _traitLabels = {

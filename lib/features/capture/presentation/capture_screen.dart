@@ -11,6 +11,7 @@ import '../../../core/router/app_router.dart';
 import '../../../services/generation/generation_client.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
+import '../../map/data/location_service.dart';
 import '../application/capture_providers.dart';
 import '../domain/cat_detector.dart';
 
@@ -46,6 +47,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   String? _capturedPath;
   String? _message;
   Cat? _caughtCat;
+  // Best-effort "where you met them" lookup, kicked off the moment a cat is
+  // spotted so it's ready by the time the player taps Keep. Never blocks a catch.
+  Future<LocationResult>? _locationRequest;
 
   @override
   void initState() {
@@ -139,6 +143,12 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       final detector = ref.read(catDetectorProvider);
       final result = await detector.analyze(photo.path);
       if (!mounted) return;
+      // Start locating now (while the player reviews the result) so the coarse
+      // pin is ready at Keep — but only once we actually think it's a cat, to
+      // avoid prompting for location on a miss.
+      if (result.accepted) {
+        _locationRequest = ref.read(locationServiceProvider).current();
+      }
       setState(() {
         _capturedPath = photo.path;
         _result = result;
@@ -158,6 +168,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       _result = null;
       _capturedPath = null;
       _caughtCat = null;
+      _locationRequest = null;
       _stage = _Stage.ready;
     });
     // The camera may have been released (e.g. backgrounded during the result
@@ -178,12 +189,22 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     setState(() => _stage = _Stage.generating);
     try {
       final bytes = await File(path).readAsBytes();
+      // Resolve the coarse location if it's ready; a catch never waits long on
+      // it — a slow GPS fix just means this cat lands without a map pin.
+      LocationResult? location;
+      try {
+        location = await _locationRequest?.timeout(const Duration(seconds: 4));
+      } catch (_) {
+        location = null;
+      }
       final cat = await ref.read(generationClientProvider).generate(
         imageBytes: bytes,
         detection: {
           'is_cat': result.isCat,
           'confidence': result.confidence,
         },
+        lat: location?.latLng?.latitude,
+        lng: location?.latLng?.longitude,
       );
       if (!mounted) return;
       setState(() {

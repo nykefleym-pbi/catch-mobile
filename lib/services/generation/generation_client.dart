@@ -30,6 +30,8 @@ abstract interface class GenerationClient {
     required Uint8List imageBytes,
     String mimeType,
     Map<String, dynamic>? detection,
+    double? lat,
+    double? lng,
   });
 }
 
@@ -44,6 +46,8 @@ class EdgeFunctionGenerationClient implements GenerationClient {
     required Uint8List imageBytes,
     String mimeType = 'image/jpeg',
     Map<String, dynamic>? detection,
+    double? lat,
+    double? lng,
   }) async {
     final client = _ref.read(supabaseClientProvider);
     try {
@@ -53,6 +57,8 @@ class EdgeFunctionGenerationClient implements GenerationClient {
           'imageBase64': base64Encode(imageBytes),
           'mimeType': mimeType,
           if (detection != null) 'detection': detection,
+          if (lat != null && lng != null) 'lat': lat,
+          if (lat != null && lng != null) 'lng': lng,
         },
       );
       final data = res.data;

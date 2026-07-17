@@ -14,7 +14,8 @@ class CatsRepository {
     final client = _ref.read(supabaseClientProvider);
     final rows = await client
         .from('cats')
-        .select('id, name, sprite_url, trait_id, generation_meta, discovered_at')
+        .select('id, name, sprite_url, trait_id, generation_meta, '
+            'geo_lat, geo_lng, discovered_at')
         .order('discovered_at', ascending: false);
     return rows
         .map((row) => Cat.fromMap(Map<String, dynamic>.from(row)))
