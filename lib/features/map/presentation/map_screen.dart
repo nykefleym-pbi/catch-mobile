@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
 import '../data/location_service.dart';
@@ -95,8 +96,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final located = [for (final c in cats) if (c.hasLocation) c];
     _maybeFitToCats(located);
 
+    final topPad = MediaQuery.of(context).padding.top;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Explore')),
       body: Stack(
         children: [
           FlutterMap(
@@ -120,13 +123,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   for (final cat in located)
                     Marker(
                       point: LatLng(cat.lat!, cat.lng!),
-                      width: 56,
-                      height: 66,
-                      // Anchor the pin's tip on the actual spot.
+                      width: 96,
+                      height: 92,
+                      // Anchor the pin near the sprite so its base sits on spot.
                       alignment: Alignment.topCenter,
                       child: _CatPin(
                         cat: cat,
-                        color: theme.colorScheme.primary,
                         onTap: () => context.push(
                           AppRoutes.catDetailPath(cat.id),
                           extra: cat,
@@ -148,85 +150,114 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 ),
             ],
           ),
-          const Positioned(
-            left: 8,
-            bottom: 8,
-            child: _Attribution(),
+          // Top-center "memory map" pill.
+          Positioned(
+            top: topPad + 12,
+            left: 0,
+            right: 0,
+            child: const Center(child: _MapHeaderPill()),
           ),
+          Positioned(
+            left: 8,
+            bottom: bottomPad + 4,
+            child: const _Attribution(),
+          ),
+          // Bottom controls: locate button above the hint card (matches design).
           Positioned(
             left: 16,
             right: 16,
-            top: 12,
-            child: _HintBanner(catCount: located.length),
+            bottom: bottomPad + 22,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _LocateButton(
+                    locating: _locating,
+                    onTap: _locating ? null : () => _locate(moveMap: true),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _HintBanner(catCount: located.length),
+              ],
+            ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _locating ? null : () => _locate(moveMap: true),
-        tooltip: 'Locate me',
-        child: _locating
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.my_location),
       ),
     );
   }
 }
 
-/// A caught cat on the map: its sprite in a rounded "photo" pin with a little
-/// pointer, tappable through to the cat's detail page.
+/// A caught cat on the map: its pixel sprite in a soft white "photo" circle
+/// with a little diamond pointer and a name label below — the design's memory-
+/// map pin. Tappable through to the cat's detail page.
 class _CatPin extends StatelessWidget {
-  const _CatPin({required this.cat, required this.color, required this.onTap});
+  const _CatPin({required this.cat, required this.onTap});
 
   final Cat cat;
-  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surface = theme.colorScheme.surface;
+    final shadow = [
+      BoxShadow(
+        color: AppTheme.ink.withValues(alpha: 0.22),
+        blurRadius: 16,
+        offset: const Offset(0, 6),
+      ),
+    ];
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 46,
-            height: 46,
-            padding: const EdgeInsets.all(3),
+            width: 52,
+            height: 52,
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: color,
+              color: surface,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              boxShadow: shadow,
             ),
-            child: ClipOval(
-              child: ColoredBox(
-                color: Colors.white,
-                child: cat.spriteUrl == null
-                    ? Icon(Icons.pets, color: color, size: 22)
-                    : Image.network(
-                        cat.spriteUrl!,
-                        fit: BoxFit.cover,
-                        // Crisp nearest-neighbour scaling for pixel-art sprites.
-                        filterQuality: FilterQuality.none,
-                        errorBuilder: (_, __, ___) =>
-                            Icon(Icons.pets, color: color, size: 22),
-                      ),
-              ),
+            child: cat.spriteUrl == null
+                ? Icon(Icons.pets, color: theme.colorScheme.primary, size: 24)
+                : Image.network(
+                    cat.spriteUrl!,
+                    fit: BoxFit.contain,
+                    // Crisp nearest-neighbour scaling for pixel-art sprites.
+                    filterQuality: FilterQuality.none,
+                    errorBuilder: (_, __, ___) => Icon(Icons.pets,
+                        color: theme.colorScheme.primary, size: 24),
+                  ),
+          ),
+          // Little diamond pointer so the pin reads as "here".
+          Transform.translate(
+            offset: const Offset(0, -6),
+            child: Transform.rotate(
+              angle: 0.785398, // 45°
+              child: Container(width: 11, height: 11, color: surface),
             ),
           ),
-          // Little downward pointer so the pin reads as "here".
-          Transform.translate(
-            offset: const Offset(0, -2),
-            child: Icon(Icons.arrow_drop_down, color: color, size: 18),
+          Container(
+            constraints: const BoxConstraints(maxWidth: 92),
+            margin: const EdgeInsets.only(top: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: shadow,
+            ),
+            child: Text(
+              cat.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -261,6 +292,72 @@ class _MeMarker extends StatelessWidget {
   }
 }
 
+/// The little "memory map" pill floating at the top of the Explore screen.
+class _MapHeaderPill extends StatelessWidget {
+  const _MapHeaderPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outline),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.ink.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        'Your memory map',
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// A soft white round "locate me" button matching the design (terracotta target).
+class _LocateButton extends StatelessWidget {
+  const _LocateButton({required this.locating, required this.onTap});
+
+  final bool locating;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: CircleBorder(side: BorderSide(color: theme.colorScheme.outline)),
+      elevation: 2,
+      shadowColor: AppTheme.ink.withValues(alpha: 0.2),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: locating
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(Icons.my_location,
+                  size: 20, color: theme.colorScheme.secondary),
+        ),
+      ),
+    );
+  }
+}
+
 class _HintBanner extends StatelessWidget {
   const _HintBanner({required this.catCount});
 
@@ -270,24 +367,50 @@ class _HintBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasCats = catCount > 0;
-    final message = hasCats
-        ? 'You\'ve met $catCount ${catCount == 1 ? 'cat' : 'cats'} here — tap a '
-            'pin to visit.'
-        : 'Walk your neighbourhood to meet cats — each one you catch pins here.';
-    return Card(
-      color: theme.colorScheme.surface.withValues(alpha: 0.92),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            Icon(hasCats ? Icons.pets : Icons.travel_explore,
-                size: 18, color: theme.colorScheme.primary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(message, style: theme.textTheme.bodySmall),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outline),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppTheme.peach,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
+            child: Icon(hasCats ? Icons.pets : Icons.travel_explore,
+                size: 18, color: AppTheme.terracotta),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: hasCats
+                ? Text.rich(
+                    TextSpan(
+                      style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+                      children: [
+                        const TextSpan(text: "You've met "),
+                        TextSpan(
+                          text: '$catCount ${catCount == 1 ? 'cat' : 'cats'}',
+                          style:
+                              const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const TextSpan(text: ' here — tap a pin to visit.'),
+                      ],
+                    ),
+                  )
+                : Text(
+                    'Walk your neighbourhood to meet cats — each one you '
+                    'catch pins here.',
+                    style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+                  ),
+          ),
+        ],
       ),
     );
   }
