@@ -5,14 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
 import '../domain/cat.dart';
 
-/// A single companion's page: the big (reactive) sprite, its trait and story,
-/// and the care controls — feed + play — that raise a permanent friendship bond
-/// and give juicy, animated feedback on every tap.
+/// A single companion's page, styled from the "Cat-ch Mobile UI" design: a warm
+/// hero with the (reactive) pixel sprite, an overlapping rounded sheet with the
+/// cat's story, gentle gradient need-meters, a friendship hearts row, and the
+/// care controls — feed + play — that grow a permanent bond with juicy feedback.
 ///
 /// The [Cat] is passed via `GoRouter` `extra` when opened from the CatDex; a
 /// deep link without it falls back to a gentle "open from your CatDex" prompt.
@@ -39,10 +41,7 @@ class CatDetailScreen extends StatelessWidget {
         ),
       );
     }
-    return Scaffold(
-      appBar: AppBar(title: Text(cat.name)),
-      body: _CompanionBody(catId: catId, cat: cat),
-    );
+    return Scaffold(body: _CompanionBody(catId: catId, cat: cat));
   }
 }
 
@@ -162,110 +161,164 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final cat = widget.cat;
     final care = ref.watch(careControllerProvider(widget.catId));
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: [
-        _spriteStack(cat),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: Text(cat.name, style: theme.textTheme.headlineSmall),
-            ),
-            if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
-          ],
-        ),
-        if (cat.blurb != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            cat.blurb!,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _hero(cat, care.valueOrNull),
+          Transform.translate(
+            offset: const Offset(0, -28),
+            child: _sheet(cat, care),
           ),
         ],
-        if (cat.discoveredAt != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Discovered ${_formatDate(cat.discoveredAt!)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.outline,
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-        _careCard(care),
-      ],
+      ),
     );
   }
 
-  Widget _spriteStack(Cat cat) {
-    return Stack(
-      children: [
-        AnimatedBuilder(
-          animation: _bounce,
-          builder: (context, child) {
-            final scale = 1 + 0.12 * math.sin(math.pi * _bounce.value);
-            return Transform.scale(scale: scale, child: child);
-          },
-          child: _SpritePanel(cat: cat),
-        ),
-        for (final f in _floaters)
+  // --- Hero: gradient panel + reactive sprite + back + mood badge -----------
+  Widget _hero(Cat cat, CareState? care) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    final topPad = MediaQuery.of(context).padding.top;
+    return SizedBox(
+      height: 300 + topPad,
+      child: Stack(
+        children: [
           Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 28),
-                  child: Transform.translate(
-                    offset: Offset(f.dx, 0),
-                    child: _Floater(
-                      key: ValueKey(f.id),
-                      emoji: f.emoji,
-                      onDone: () => _removeFloater(f.id),
-                    ),
-                  ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isLight
+                      ? const [Color(0xFFFBE3CD), Color(0xFFF7D9BC)]
+                      : const [Color(0xFF3C332B), Color(0xFF2B2420)],
                 ),
               ),
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _careCard(AsyncValue<CareState> care) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: care.when(
-          loading: () => const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (_, __) => SizedBox(
-            height: 200,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+          // Reactive sprite with floaters.
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(top: topPad, bottom: 20),
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  const Text("Couldn't load care status."),
-                  const SizedBox(height: 12),
-                  FilledButton.tonal(
-                    onPressed: () => ref
-                        .read(careControllerProvider(widget.catId).notifier)
-                        .load(),
-                    child: const Text('Retry'),
+                  AnimatedBuilder(
+                    animation: _bounce,
+                    builder: (context, child) {
+                      final scale = 1 + 0.12 * math.sin(math.pi * _bounce.value);
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: _HeroSprite(cat: cat),
                   ),
+                  for (final f in _floaters)
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: IgnorePointer(
+                        child: Transform.translate(
+                          offset: Offset(f.dx, 0),
+                          child: _Floater(
+                            key: ValueKey(f.id),
+                            emoji: f.emoji,
+                            onDone: () => _removeFloater(f.id),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
-          data: _careBody,
-        ),
+          Positioned(
+            top: topPad + 12,
+            left: 16,
+            child: _RoundIconButton(
+              icon: Icons.arrow_back_ios_new,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          if (care != null)
+            Positioned(
+              right: 24,
+              bottom: 44,
+              child: _MoodBadge(mood: _titleCase(care.currentMood)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- Sheet: name, story, meters, bond, actions ---------------------------
+  Widget _sheet(Cat cat, AsyncValue<CareState> care) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusSheet)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(cat.name,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
+            ],
+          ),
+          if (cat.blurb != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              cat.blurb!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            _metaLine(cat),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 20),
+          care.when(
+            loading: () => const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (_, __) => SizedBox(
+              height: 160,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Couldn't load care status."),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      onPressed: () => ref
+                          .read(careControllerProvider(widget.catId).notifier)
+                          .load(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            data: _careBody,
+          ),
+        ],
       ),
     );
   }
@@ -275,92 +328,237 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(Icons.favorite, size: 18, color: theme.colorScheme.primary),
-            const SizedBox(width: 8),
-            Text('Bond', style: theme.textTheme.titleMedium),
-            const Spacer(),
-            Text(
-              state.bondLabel,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: state.bondProgress),
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeOut,
-            builder: (context, v, _) => LinearProgressIndicator(
-              value: v,
-              minHeight: 14,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          state.bondIsMax
-              ? 'Inseparable — the deepest bond 💛'
-              : 'Feed and play to grow your bond.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const Divider(height: 28),
-        Row(
-          children: [
-            Text('Today', style: theme.textTheme.titleMedium),
-            const Spacer(),
-            Text(
-              _titleCase(state.currentMood),
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.secondary,
-              ),
-            ),
-          ],
+        _Meter(
+          label: 'Hunger',
+          status: _hungerStatus(state.currentHunger),
+          value: state.currentHunger / 100,
+          gradient: const [AppTheme.apricot, AppTheme.terracotta],
         ),
         const SizedBox(height: 14),
-        _NeedBar(
-          icon: Icons.restaurant,
-          label: 'Hunger',
-          value: state.currentHunger,
-          color: theme.colorScheme.tertiary,
-        ),
-        const SizedBox(height: 12),
-        _NeedBar(
-          icon: Icons.sentiment_very_satisfied,
+        _Meter(
           label: 'Happiness',
-          value: state.currentHappiness,
-          color: theme.colorScheme.secondary,
+          status: _happyStatus(state.currentHappiness),
+          value: state.currentHappiness / 100,
+          gradient: const [AppTheme.sage, Color(0xFF8FB287)],
+        ),
+        const SizedBox(height: 16),
+        _BondHearts(
+          filled: Bond.levelIndexFor(state.friendship) + 1,
+          total: Bond.levelCount,
+          label: state.bondLabel,
         ),
         const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: _openTreatPicker,
-                icon: const Icon(Icons.restaurant),
-                label: const Text('Feed'),
+                child: const Text('Feed'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton.tonalIcon(
+              child: FilledButton.tonal(
                 onPressed: _play,
-                icon: const Icon(Icons.sports_esports),
-                label: const Text('Play'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.tertiaryContainer,
+                  foregroundColor: theme.colorScheme.onTertiaryContainer,
+                ),
+                child: const Text('Play'),
               ),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            state.bondIsMax
+                ? 'Inseparable — the deepest bond 💛'
+                : 'Away a while? ${widget.cat.name} just wants a little '
+                    'attention — never guilt.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _metaLine(Cat cat) {
+    final parts = <String>[];
+    if (cat.hasLocation) parts.add('Met nearby');
+    if (cat.discoveredAt != null) parts.add(_formatDate(cat.discoveredAt!));
+    return parts.isEmpty ? 'A treasured companion' : parts.join(' · ');
+  }
+}
+
+// --- Small pieces ----------------------------------------------------------
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface.withValues(alpha: 0.85),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoodBadge extends StatelessWidget {
+  const _MoodBadge({required this.mood});
+
+  final String mood;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.ink.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Color(0xFF6E8C66),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(mood,
+              style: theme.textTheme.labelMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Meter extends StatelessWidget {
+  const _Meter({
+    required this.label,
+    required this.status,
+    required this.value,
+    required this.gradient,
+  });
+
+  final String label;
+  final String status;
+  final double value;
+  final List<Color> gradient;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final track = theme.brightness == Brightness.light
+        ? const Color(0xFFF0E4D4)
+        : const Color(0xFF3C332B);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            Text(status,
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, c) => ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Stack(
+              children: [
+                Container(height: 12, color: track),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOut,
+                  builder: (context, v, _) => Container(
+                    height: 12,
+                    width: c.maxWidth * v,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradient),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BondHearts extends StatelessWidget {
+  const _BondHearts({
+    required this.filled,
+    required this.total,
+    required this.label,
+  });
+
+  final int filled;
+  final int total;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text('Friendship',
+            style: theme.textTheme.labelLarge
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        const Spacer(),
+        for (var i = 0; i < total; i++)
+          Padding(
+            padding: const EdgeInsets.only(left: 3),
+            child: Icon(
+              Icons.favorite,
+              size: 15,
+              color: i < filled
+                  ? AppTheme.terracotta
+                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+          ),
+        const SizedBox(width: 8),
+        Text(label,
+            style: theme.textTheme.labelMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
       ],
     );
   }
@@ -433,39 +631,28 @@ class _FloaterState extends State<_Floater>
   }
 }
 
-class _SpritePanel extends StatelessWidget {
-  const _SpritePanel({required this.cat});
+class _HeroSprite extends StatelessWidget {
+  const _HeroSprite({required this.cat});
 
   final Cat cat;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AspectRatio(
-      aspectRatio: 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: cat.spriteUrl == null
-              ? const Center(child: Icon(Icons.pets, size: 72))
-              : Image.network(
-                  cat.spriteUrl!,
-                  fit: BoxFit.contain,
-                  // Crisp nearest-neighbour scaling for pixel-art sprites.
-                  filterQuality: FilterQuality.none,
-                  loadingBuilder: (context, child, progress) => progress == null
-                      ? child
-                      : const Center(child: CircularProgressIndicator()),
-                  errorBuilder: (context, _, __) => const Center(
-                    child: Icon(Icons.broken_image_outlined, size: 56),
-                  ),
-                ),
-        ),
-      ),
+    if (cat.spriteUrl == null) {
+      return Icon(Icons.pets, size: 96, color: theme.colorScheme.primary);
+    }
+    return Image.network(
+      cat.spriteUrl!,
+      width: 180,
+      height: 180,
+      fit: BoxFit.contain,
+      // Crisp nearest-neighbour scaling for pixel-art sprites.
+      filterQuality: FilterQuality.none,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : const CircularProgressIndicator(),
+      errorBuilder: (context, _, __) =>
+          const Icon(Icons.broken_image_outlined, size: 72),
     );
   }
 }
@@ -484,15 +671,18 @@ class _TreatSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
             child: Text('Pick a treat', style: theme.textTheme.titleLarge),
           ),
           for (final treat in kTreats)
             ListTile(
               leading: Text(treat.emoji, style: const TextStyle(fontSize: 28)),
-              title: Text(treat.label),
+              title: Text(treat.label,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w500)),
               subtitle: Text('+${treat.bond} bond'),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: Icon(Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant),
               onTap: () => Navigator.of(context).pop(treat),
             ),
           const SizedBox(height: 8),
@@ -510,65 +700,19 @@ class _TraitChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Chip(
-      label: Text(label),
-      labelStyle: theme.textTheme.labelLarge?.copyWith(
-        color: theme.colorScheme.onPrimaryContainer,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppTheme.peach,
+        borderRadius: BorderRadius.circular(10),
       ),
-      backgroundColor: theme.colorScheme.primaryContainer,
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _NeedBar extends StatelessWidget {
-  const _NeedBar({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 10),
-        SizedBox(width: 78, child: Text(label, style: theme.textTheme.bodyMedium)),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: (value / 100).clamp(0.0, 1.0)),
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOut,
-              builder: (context, v, _) => LinearProgressIndicator(
-                value: v,
-                minHeight: 10,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color: color,
-              ),
-            ),
-          ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF8C5A2E),
         ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 34,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.end,
-            style: theme.textTheme.bodySmall,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -585,3 +729,17 @@ String _formatDate(DateTime dt) {
 
 String _titleCase(String value) =>
     value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
+
+String _hungerStatus(int v) {
+  if (v >= 85) return 'Full & happy';
+  if (v >= 65) return 'Content';
+  if (v >= 45) return 'Feeling snacky';
+  return 'Hungry';
+}
+
+String _happyStatus(int v) {
+  if (v >= 85) return 'Blissful';
+  if (v >= 65) return 'Pretty content';
+  if (v >= 45) return 'A bit restless';
+  return 'Needs cheering';
+}

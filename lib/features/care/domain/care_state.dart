@@ -39,6 +39,9 @@ class Bond {
 
   static String labelFor(int points) => _bondLevels[levelIndexFor(points)].name;
 
+  /// Total number of bond tiers (for a hearts-style display).
+  static int get levelCount => _bondLevels.length;
+
   static bool isMax(int points) => levelIndexFor(points) >= _bondLevels.length - 1;
 
   /// Progress (0–1) within the current tier toward the next; full at max tier.
