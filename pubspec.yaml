@@ -10,6 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Typography — Fredoka (display) + Nunito Sans (body), per the Cat-ch design.
+  google_fonts: ^6.2.1
+
   # State management (ADR 0002)
   flutter_riverpod: ^2.5.1
 
