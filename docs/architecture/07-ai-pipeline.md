@@ -90,12 +90,24 @@ guarantee:
 
 **Provider (pluggable — free-first, [ADR 0001](../decisions/0001-image-generation.md)):**
 the Edge Function selects a backend at runtime via the `IMAGE_PROVIDER` env var,
-so the provider is swappable without a client change:
+so the provider is swappable without a client change. When `IMAGE_PROVIDER` is
+unset it prefers **`pixellab`** if that token is configured, otherwise
+**`cloudflare`**:
 
-- **`cloudflare` (current default)** — **Cloudflare Workers AI** Stable-Diffusion
+- **`pixellab` (current direction — pixel art)** — a two-step, characteristics-
+  driven flow: Cloudflare's **free vision model** (`@cf/llava-hf/llava-1.5-7b-hf`)
+  reads the real cat into a short description (coat colour, pattern, eyes,
+  markings), then **PixelLab** `generate-image-pixflux`
+  (`https://api.pixellab.ai/v1`) draws a **pixel-art** companion from that
+  description with `no_background: true` for a **transparent** sprite. The source
+  photo never leaves as an image — only its description drives generation.
+  Requires `PIXELLAB_API_TOKEN` (credit-based/paid) plus the Cloudflare vision
+  creds; the client renders sprites with nearest-neighbour filtering so pixels
+  stay crisp.
+- **`cloudflare` (free fallback)** — **Cloudflare Workers AI** Stable-Diffusion
   **img2img** (`@cf/bytedance/stable-diffusion-xl-lightning`, overridable via
   `CLOUDFLARE_IMAGE_MODEL`). Genuinely free within a daily allowance. The source
-  photo is passed as `image_b64` at `strength ~0.6` so coat colour and markings
+  photo is passed as `image_b64` at `strength ~0.45` so coat colour and markings
   carry through while the model restyles. Metadata (name + trait) is generated
   locally, since SD can't read the photo into attributes.
 - **`gemini` (switchable)** — **Google Gemini "2.5 Flash Image"** ("nano-banana")
@@ -103,11 +115,11 @@ so the provider is swappable without a client change:
   wired; requires Gemini API billing (its free tier yields effectively no image
   quota). Set `IMAGE_PROVIDER=gemini` to switch back.
 
-Free/SD image models generally output on a solid background, and SD img2img is
-lower and less consistent in quality than nano-banana. Producing a truly
-transparent sprite via **`rembg`** (open-source) or on-device subject segmentation
-(`photo → stylize → background removal → transparent PNG`) remains a hardening
-follow-up.
+PixelLab yields a genuinely transparent pixel-art sprite. The SD (`cloudflare`)
+fallback generally outputs on a solid background and is lower/less consistent in
+quality; producing a truly transparent sprite from that path via **`rembg`**
+(open-source) or on-device subject segmentation remains a hardening follow-up for
+the non-PixelLab providers.
 
 ### Animation (later)
 

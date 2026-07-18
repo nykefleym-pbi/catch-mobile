@@ -215,6 +215,8 @@ class _CatPin extends StatelessWidget {
                     : Image.network(
                         cat.spriteUrl!,
                         fit: BoxFit.cover,
+                        // Crisp nearest-neighbour scaling for pixel-art sprites.
+                        filterQuality: FilterQuality.none,
                         errorBuilder: (_, __, ___) =>
                             Icon(Icons.pets, color: color, size: 22),
                       ),

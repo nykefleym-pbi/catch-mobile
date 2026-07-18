@@ -455,6 +455,8 @@ class _SpritePanel extends StatelessWidget {
               : Image.network(
                   cat.spriteUrl!,
                   fit: BoxFit.contain,
+                  // Crisp nearest-neighbour scaling for pixel-art sprites.
+                  filterQuality: FilterQuality.none,
                   loadingBuilder: (context, child, progress) => progress == null
                       ? child
                       : const Center(child: CircularProgressIndicator()),

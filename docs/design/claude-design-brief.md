@@ -81,9 +81,10 @@ BRAND & ART DIRECTION:
   Pill-shaped primary buttons. Soft, low, warm shadows — never harsh.
 - Iconography: rounded, friendly, slightly chunky line/duotone icons. Paw motifs
   used sparingly as a signature.
-- Illustration & the cat sprites: stylized and CUTE, not photoreal — chibi
-  storybook cats with big friendly eyes, thick soft outlines, flat matte cel
-  shading, derived from a real cat's actual colors and markings.
+- App illustration is warm, rounded, cozy/hand-illustrated. The cat COMPANIONS
+  themselves are adorable PIXEL ART (crisp pixels, cozy palette, big friendly
+  eyes, transparent background), derived from a real cat's actual colors and
+  markings — see §5. Pixel sprites against the soft UI is a deliberate combo.
 - Motion (describe, don't over-animate): gentle, springy, low-stakes — soft
   fade/scale reveals, a breathing/blink idle on cats, no aggressive flashing.
 
@@ -360,25 +361,31 @@ feature. Light + dark.
 
 ## 5. Companion sprite art direction
 
-The generated cat sprites are the emotional core. When asking Claude Design for
-sprite reference or a style frame, use:
+The generated cat sprites are the emotional core. **The chosen companion style is
+PIXEL ART** (generated via PixelLab from the real cat's identified
+characteristics — see [AI pipeline](../architecture/07-ai-pipeline.md)). The
+surrounding app UI stays warm and hand-illustrated/cozy per §1; the *cats
+themselves* are crisp, adorable pixel-art creatures — a combination many cozy
+collector games use well. When asking Claude Design for sprite reference or a
+style frame, use:
 
 ```
-Design the reference art style for Cat-ch companion cats: an adorable CHIBI storybook
-cat — big friendly eyes, soft rounded body, thick soft outlines, flat matte cel
-shading, warm and huggable. It must stay recognizably derived from a REAL cat's actual
-coat color, fur pattern, eye color, and distinctive markings (this is the "uniqueness"
-pillar — each cat is a memento of a specific real animal). Full body, sitting,
-centered, facing viewer, on a clean soft background, ideally a transparent cutout for
-in-app use. NOT photoreal, NOT a fantasy/neon creature — a believable, cozy, cute
-cat. Show a small sheet of 4–6 varied examples (different coats: tabby, tuxedo, calico,
-ginger, grey, black-and-white) to prove the range.
+Design the reference art style for Cat-ch companion cats: adorable PIXEL-ART cats —
+crisp, clean pixels, limited cozy palette, big friendly eyes, chunky readable
+shapes, transparent background. Chibi proportions, warm and huggable, creature-
+collector game energy. Each cat must stay recognizably derived from a REAL cat's
+actual coat color, fur pattern, eye color, and distinctive markings (the
+"uniqueness" pillar — each is a memento of a specific real animal). Full body,
+sitting, centered, facing viewer. NOT photoreal, NOT a fantasy/neon creature.
+Show a small sheet of 4–6 varied examples (tabby, tuxedo, calico, ginger, grey,
+black-and-white) to prove the range, and note how the pixel sprites sit against
+the soft, rounded app UI so the two styles feel intentional together.
 ```
 
-This mirrors what the generation pipeline targets today
+This mirrors the current generation pipeline
 ([AI pipeline](../architecture/07-ai-pipeline.md),
 [ADR 0001](../decisions/0001-image-generation.md)); the reference frames help us
-tune prompts and pick a provider.
+tune the description → PixelLab prompt.
 
 ---
 

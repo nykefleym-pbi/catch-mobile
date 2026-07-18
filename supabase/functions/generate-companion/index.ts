@@ -12,8 +12,13 @@
 //   5. Store the sprite in the public `sprites` bucket.
 //   6. Persist cats + care_state; mark the capture complete.
 //
-// PROVIDER is pluggable via the IMAGE_PROVIDER env var:
-//   - "cloudflare" (default) → Cloudflare Workers AI Stable-Diffusion img2img
+// PROVIDER is pluggable via the IMAGE_PROVIDER env var (when unset we prefer
+// "pixellab" if its token is configured, otherwise "cloudflare"):
+//   - "pixellab" → read the real cat's characteristics with Cloudflare's free
+//     vision model (LLaVA), then generate a PIXEL-ART companion from that
+//     description via PixelLab (transparent background). This is the current
+//     art direction.
+//   - "cloudflare" → Cloudflare Workers AI Stable-Diffusion img2img
 //     (free within a daily allowance) + locally-generated metadata.
 //   - "gemini" → Gemini 2.5 Flash Image ("nano-banana") + Gemini JSON metadata.
 //     Kept fully wired so we can switch back once Gemini billing is enabled.
@@ -43,14 +48,18 @@ const DAILY_CAP = 30;
 // wall clock alongside auth + upload.
 const IMAGE_TIMEOUT_MS = 45_000;
 const TEXT_TIMEOUT_MS = 20_000;
+// Cloudflare vision (LLaVA) reads the cat's characteristics for the PixelLab path.
+const VISION_TIMEOUT_MS = 30_000;
 // Timeout for the quick Supabase round-trips (auth, cap count, inserts, upload)
 // so a stalled control-plane call can't silently eat the whole request budget.
 const DB_TIMEOUT_MS = 15_000;
 const UPLOAD_TIMEOUT_MS = 30_000;
 
-// Which backend generates the sprite. Defaults to Cloudflare so the app works
-// on a free tier; set IMAGE_PROVIDER=gemini to use nano-banana instead.
-const IMAGE_PROVIDER = (Deno.env.get("IMAGE_PROVIDER") ?? "cloudflare").toLowerCase();
+// Which backend generates the sprite. If IMAGE_PROVIDER is unset we prefer
+// PixelLab when its token is configured (the pixel-art direction), otherwise
+// Cloudflare. Set IMAGE_PROVIDER explicitly ("pixellab" | "cloudflare" |
+// "gemini") to force one.
+const EXPLICIT_PROVIDER = Deno.env.get("IMAGE_PROVIDER")?.toLowerCase();
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -63,6 +72,15 @@ const CF_BASE = "https://api.cloudflare.com/client/v4/accounts";
 const CF_IMAGE_MODEL =
   Deno.env.get("CLOUDFLARE_IMAGE_MODEL") ??
   "@cf/bytedance/stable-diffusion-xl-lightning";
+// Free Cloudflare vision model — reads the real cat into a short description
+// which the PixelLab path turns into a pixel-art prompt.
+const CF_VISION_MODEL =
+  Deno.env.get("CLOUDFLARE_VISION_MODEL") ?? "@cf/llava-hf/llava-1.5-7b-hf";
+
+// PixelLab: text-to-pixel-art. We describe the caught cat, then generate a
+// pixel-art companion from that description (the source photo never leaves as
+// an image). https://api.pixellab.ai/v1
+const PIXELLAB_BASE = "https://api.pixellab.ai/v1";
 
 interface GenerateRequest {
   imageBase64: string;
@@ -107,6 +125,9 @@ Deno.serve(async (req: Request) => {
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
   const cfAccount = cfAccountId(Deno.env.get("CLOUDFLARE_ACCOUNT_ID"));
   const cfToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
+  const pixellabToken = Deno.env.get("PIXELLAB_API_TOKEN");
+  const provider = EXPLICIT_PROVIDER ??
+    (pixellabToken ? "pixellab" : "cloudflare");
 
   // --- 1. Authenticate the caller ------------------------------------------
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -134,9 +155,15 @@ Deno.serve(async (req: Request) => {
   log(`authed user ${userId}`);
 
   // The active provider must have its credentials configured.
-  if (IMAGE_PROVIDER === "gemini") {
+  if (provider === "gemini") {
     if (!geminiKey) {
       log("GEMINI_API_KEY missing");
+      return json({ error: "generation_unconfigured" }, 503);
+    }
+  } else if (provider === "pixellab") {
+    // PixelLab makes the sprite; Cloudflare's free vision model reads the cat.
+    if (!pixellabToken || !cfAccount || !cfToken) {
+      log("PIXELLAB_API_TOKEN or Cloudflare vision creds missing");
       return json({ error: "generation_unconfigured" }, 503);
     }
   } else if (!cfAccount || !cfToken) {
@@ -207,23 +234,35 @@ Deno.serve(async (req: Request) => {
   log(`capture ${captureId} created`);
 
   try {
-    // --- 3. Generate the sprite --------------------------------------------
-    const sprite = IMAGE_PROVIDER === "gemini"
-      ? await generateSpriteGemini(geminiKey!, body.imageBase64, mimeType)
-      : await generateSpriteCloudflare(
+    // --- 3. Generate the sprite (+ metadata) -------------------------------
+    // Gemini reads the photo into structured attributes; Stable Diffusion can't,
+    // so the Cloudflare path names the cat locally; the PixelLab path reads the
+    // real cat with Cloudflare vision and turns that into a pixel-art prompt.
+    let sprite: Uint8Array;
+    let meta: CompanionMeta;
+    if (provider === "gemini") {
+      sprite = await generateSpriteGemini(geminiKey!, body.imageBase64, mimeType);
+      meta = await describeCat(geminiKey!, body.imageBase64, mimeType);
+    } else if (provider === "pixellab") {
+      const described = await describeCatVision(
+        cfAccount!,
+        cfToken!,
+        body.imageBase64,
+      );
+      log(`vision described: ${described || "(none)"}`);
+      sprite = await generateSpritePixellab(pixellabToken!, described);
+      meta = localMeta();
+      if (described) meta.blurb = described;
+    } else {
+      sprite = await generateSpriteCloudflare(
         cfAccount!,
         cfToken!,
         body.imageBase64,
         mimeType,
       );
-    log(`sprite generated (${sprite.byteLength} bytes via ${IMAGE_PROVIDER})`);
-
-    // --- 4. Attach descriptive metadata ------------------------------------
-    // Gemini can read the photo into structured attributes; Stable Diffusion
-    // can't, so the Cloudflare path names the cat locally.
-    const meta = IMAGE_PROVIDER === "gemini"
-      ? await describeCat(geminiKey!, body.imageBase64, mimeType)
-      : localMeta();
+      meta = localMeta();
+    }
+    log(`sprite generated (${sprite.byteLength} bytes via ${provider})`);
     const traitId = TRAIT_IDS.includes(meta.trait_id as typeof TRAIT_IDS[number])
       ? meta.trait_id
       : TRAIT_IDS[Math.floor(Math.random() * TRAIT_IDS.length)];
@@ -409,6 +448,91 @@ async function cfImageRun(
       return bytes;
     },
   );
+}
+
+// --- PixelLab: text-to-pixel-art -------------------------------------------
+
+// Generate a pixel-art companion from a description of the real cat. PixelLab's
+// pixflux endpoint is text-to-image; `no_background: true` yields a transparent
+// sprite. Response carries the PNG as base64 — we're forgiving about its shape.
+async function generateSpritePixellab(
+  token: string,
+  description: string,
+): Promise<Uint8Array> {
+  const subject = description.length > 0 ? description : "a cute cat";
+  const prompt =
+    `cute pixel art cat, ${subject}, adorable chibi game companion sprite, ` +
+    `sitting, front view, centered, friendly big eyes`;
+  const data = await fetchWithTimeout(
+    `${PIXELLAB_BASE}/generate-image-pixflux`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        description: prompt,
+        image_size: { width: 128, height: 128 },
+        negative_description:
+          "blurry, realistic photo, deformed, extra limbs, text, watermark, " +
+          "multiple cats, human",
+        text_guidance_scale: 8.0,
+        no_background: true,
+      }),
+    },
+    IMAGE_TIMEOUT_MS,
+    async (res) => {
+      if (!res.ok) {
+        throw new Error(`image_api_${res.status}: ${await safeText(res)}`);
+      }
+      return await res.json();
+    },
+  );
+  const b64 = data?.image?.base64 ?? data?.image ??
+    data?.images?.[0]?.base64 ?? data?.images?.[0];
+  if (typeof b64 !== "string" || b64.length === 0) {
+    throw new Error("image_api_no_image");
+  }
+  return decodeBase64(stripDataUri(b64));
+}
+
+// Read the real cat's appearance into a short description using Cloudflare's
+// free vision model. Non-fatal: on any failure we return "" and PixelLab still
+// draws a (less specific) cat, so a catch never fails over the describe step.
+async function describeCatVision(
+  accountId: string,
+  token: string,
+  imageBase64: string,
+): Promise<string> {
+  try {
+    const bytes = decodeBase64(imageBase64);
+    const data = await fetchWithTimeout(
+      `${CF_BASE}/${accountId}/ai/run/${CF_VISION_MODEL}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          image: Array.from(bytes),
+          prompt:
+            "Describe only this cat's appearance in one short vivid phrase: " +
+            "coat colour, fur pattern, eye colour, and any distinctive " +
+            "markings. Do not mention the background or surroundings.",
+          max_tokens: 200,
+        }),
+      },
+      VISION_TIMEOUT_MS,
+      async (res) => (res.ok ? await res.json() : null),
+    );
+    return (data?.result?.description ?? "").toString().trim();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`[gen] vision describe failed (${message}); using generic`);
+    return "";
+  }
 }
 
 // --- Gemini: image stylization ---------------------------------------------
@@ -631,6 +755,12 @@ function decodeBase64(b64: string): Uint8Array {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+// Strip a `data:image/...;base64,` prefix if the provider returned a data URI.
+function stripDataUri(b64: string): string {
+  const comma = b64.indexOf(",");
+  return b64.startsWith("data:") && comma !== -1 ? b64.slice(comma + 1) : b64;
 }
 
 async function safeText(res: Response): Promise<string> {
