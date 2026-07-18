@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../services/generation/generation_client.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
@@ -240,18 +241,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         fit: StackFit.expand,
         children: [
           _buildBody(context),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: _CircleButton(
-                  icon: Icons.close,
-                  onPressed: () => context.pop(),
+          // The caught reveal has its own warm background + navigation buttons,
+          // so the dark camera-style close button would look out of place there.
+          if (_stage != _Stage.caught)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _CircleButton(
+                    icon: Icons.close,
+                    onPressed: () => context.pop(),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -342,93 +346,79 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     final theme = Theme.of(context);
 
     return Container(
-      color: Colors.black,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(),
-              Text(
-                'Caught!',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                flex: 6,
-                child: cat.spriteUrl == null
-                    ? const Icon(Icons.pets, color: Colors.white70, size: 96)
-                    : Image.network(
-                        cat.spriteUrl!,
-                        fit: BoxFit.contain,
-                        // Crisp nearest-neighbour scaling for pixel-art sprites.
-                        filterQuality: FilterQuality.none,
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null
-                                ? child
-                                : const _Centered(
-                                    child: CircularProgressIndicator()),
-                        errorBuilder: (context, _, __) => const Icon(
-                            Icons.broken_image_outlined,
-                            color: Colors.white54,
-                            size: 72),
+      color: theme.scaffoldBackgroundColor,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: _ConfettiDots()),
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(28, 24, 28, 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        Text(
+                          'A new fur-iend!',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: AppTheme.apricot,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Transform.rotate(
+                          angle: 0.026, // a playful ~1.5° tilt, per the design
+                          child: _RevealCard(cat: cat),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 56,
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _goToCatDex,
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.radiusSheet),
+                            ),
+                          ),
+                          child: Text('See ${cat.name} in CatDex'),
+                        ),
                       ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                cat.name,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineMedium
-                    ?.copyWith(color: Colors.white),
-              ),
-              if (cat.traitLabel != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  cat.traitLabel!,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.primary,
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 56,
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _retake,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(color: theme.colorScheme.outline),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusSheet),
+                            ),
+                          ),
+                          child: const Text('Catch another'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-              if (cat.blurb != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  cat.blurb!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: Colors.white70),
-                ),
-              ],
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _retake,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white54),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Catch another'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _goToCatDex,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('See in CatDex'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -531,6 +521,203 @@ class _Centered extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: child);
+}
+
+/// The reveal card: the new companion's sprite in a tinted circle, its name,
+/// trait, story, and a small "met" line — styled from the Cat-ch design.
+class _RevealCard extends StatelessWidget {
+  const _RevealCard({required this.cat});
+
+  final Cat cat;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final circleTint = theme.brightness == Brightness.light
+        ? AppTheme.peach
+        : const Color(0xFF463427);
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.colorScheme.outline),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 160,
+            height: 160,
+            decoration: BoxDecoration(color: circleTint, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: _BreathingSprite(url: cat.spriteUrl),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            cat.name,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          if (cat.traitLabel != null) ...[
+            const SizedBox(height: 10),
+            _RevealTraitChip(label: cat.traitLabel!),
+          ],
+          if (cat.blurb != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              cat.blurb!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.55,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            _revealMetaLine(cat),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The sprite in the reveal circle, with a gentle continuous "breathing" scale.
+class _BreathingSprite extends StatefulWidget {
+  const _BreathingSprite({required this.url});
+
+  final String? url;
+
+  @override
+  State<_BreathingSprite> createState() => _BreathingSpriteState();
+}
+
+class _BreathingSpriteState extends State<_BreathingSprite>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final url = widget.url;
+    final Widget sprite = url == null
+        ? Icon(Icons.pets, size: 88, color: theme.colorScheme.primary)
+        : Image.network(
+            url,
+            width: 120,
+            height: 120,
+            fit: BoxFit.contain,
+            // Crisp nearest-neighbour scaling for pixel-art sprites.
+            filterQuality: FilterQuality.none,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : const CircularProgressIndicator(),
+            errorBuilder: (context, _, __) => Icon(
+                Icons.broken_image_outlined,
+                size: 72,
+                color: theme.colorScheme.onSurfaceVariant),
+          );
+    return ScaleTransition(
+      scale: Tween(begin: 0.96, end: 1.04).animate(
+        CurvedAnimation(parent: _c, curve: Curves.easeInOut),
+      ),
+      child: sprite,
+    );
+  }
+}
+
+class _RevealTraitChip extends StatelessWidget {
+  const _RevealTraitChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppTheme.peach,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF8C5A2E),
+        ),
+      ),
+    );
+  }
+}
+
+/// A few soft decorative dots behind the reveal — a calm, confetti-lite touch.
+class _ConfettiDots extends StatelessWidget {
+  const _ConfettiDots();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot(double size, Color color, double opacity) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: opacity),
+            shape: BoxShape.circle,
+          ),
+        );
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned(top: 90, left: 34, child: dot(10, AppTheme.apricot, 0.5)),
+          Positioned(top: 130, right: 48, child: dot(8, AppTheme.sage, 0.5)),
+          Positioned(top: 210, right: 34, child: dot(9, AppTheme.apricot, 0.4)),
+          Positioned(top: 180, left: 52, child: dot(7, AppTheme.terracotta, 0.4)),
+          Positioned(
+              bottom: 150, left: 40, child: dot(8, AppTheme.sage, 0.4)),
+          Positioned(
+              bottom: 190, right: 44, child: dot(10, AppTheme.apricot, 0.4)),
+        ],
+      ),
+    );
+  }
+}
+
+const _revealMonths = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+String _revealMetaLine(Cat cat) {
+  final parts = <String>[];
+  parts.add(cat.hasLocation ? 'Met nearby' : 'A new companion');
+  final at = cat.discoveredAt?.toLocal() ?? DateTime.now();
+  parts.add('${_revealMonths[at.month - 1]} ${at.day}, ${at.year}');
+  return parts.join(' · ').toUpperCase();
 }
 
 class _CircleButton extends StatelessWidget {
