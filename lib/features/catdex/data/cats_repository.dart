@@ -21,6 +21,14 @@ class CatsRepository {
         .map((row) => Cat.fromMap(Map<String, dynamic>.from(row)))
         .toList();
   }
+
+  /// Renames a caught cat. RLS scopes the update to the signed-in user's own
+  /// rows, so no explicit `profile_id` filter is needed. The trimmed name is
+  /// stored as-is; the caller enforces length/emptiness.
+  Future<void> rename(String catId, String name) async {
+    final client = _ref.read(supabaseClientProvider);
+    await client.from('cats').update({'name': name}).eq('id', catId);
+  }
 }
 
 final catsRepositoryProvider = Provider<CatsRepository>((ref) {

@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
+import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
 /// A single companion's page, styled from the "Cat-ch Mobile UI" design: a warm
@@ -62,9 +66,16 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
   final math.Random _random = math.Random();
   int _floaterSeq = 0;
 
+  /// The cat's name, held locally so an in-place rename updates this page
+  /// immediately (the [Cat] arrives immutable via router `extra`). Starts from
+  /// the passed-in cat and is kept in sync across care messages + sharing.
+  late String _name;
+  bool _sharing = false;
+
   @override
   void initState() {
     super.initState();
+    _name = widget.cat.name;
     _bounce = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
@@ -98,8 +109,8 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             happinessGain: treat.happiness,
           ),
       message: foodie
-          ? '${widget.cat.name} devoured the ${treat.label}! ${treat.emoji}'
-          : '${widget.cat.name} enjoyed ${treat.label} ${treat.emoji}',
+          ? '$_name devoured the ${treat.label}! ${treat.emoji}'
+          : '$_name enjoyed ${treat.label} ${treat.emoji}',
     );
   }
 
@@ -107,7 +118,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         floater: '🧶',
         action: () =>
             ref.read(careControllerProvider(widget.catId).notifier).play(),
-        message: '${widget.cat.name} had fun 🧶',
+        message: '$_name had fun 🧶',
       );
 
   /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
@@ -136,7 +147,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            'You and ${widget.cat.name} are now ${Bond.labelFor(after)}! 💛',
+            'You and $_name are now ${Bond.labelFor(after)}! 💛',
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -157,6 +168,126 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
   void _removeFloater(int id) {
     if (!mounted) return;
     setState(() => _floaters.removeWhere((f) => f.id == id));
+  }
+
+  /// Opens a gentle rename dialog. On save, persists to Supabase, updates this
+  /// page in place, and invalidates the CatDex so the grid reflects the new
+  /// name. Failures leave the old name and surface a friendly retry prompt.
+  Future<void> _openRename() async {
+    final controller = TextEditingController(text: _name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          title: const Text('Rename'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            maxLength: 24,
+            decoration: const InputDecoration(
+              hintText: 'Give your companion a name',
+            ),
+            onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(context).pop(controller.text.trim()),
+              style: FilledButton.styleFrom(
+                textStyle: theme.textTheme.labelLarge,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    final trimmed = newName?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == _name) return;
+
+    final previous = _name;
+    setState(() => _name = trimmed); // optimistic
+    try {
+      await ref.read(catsRepositoryProvider).rename(widget.catId, trimmed);
+      if (!mounted) return;
+      ref.invalidate(catsProvider); // refresh the grid
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Renamed to $trimmed'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _name = previous); // roll back
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text("Couldn't rename — please try again.")),
+        );
+    }
+  }
+
+  /// Shares the companion to other apps — the sprite image plus a short story
+  /// line. Downloading the sprite can fail (offline, etc.); we fall back to a
+  /// text-only share so the button always does something useful.
+  Future<void> _share() async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    final trait = widget.cat.traitLabel;
+    final blurb = widget.cat.blurb;
+    final text = [
+      'Meet $_name${trait != null ? ', my $trait companion' : ''} '
+          'in Cat-ch! 🐾',
+      if (blurb != null) blurb,
+    ].join('\n');
+
+    try {
+      final bytes = await _downloadSprite(widget.cat.spriteUrl);
+      if (!mounted) return;
+      if (bytes != null) {
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, mimeType: 'image/png', name: '$_name.png')],
+          text: text,
+        );
+      } else {
+        await Share.share(text);
+      }
+    } catch (_) {
+      // Sharing can throw if the sheet is dismissed oddly; ignore silently.
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  Future<Uint8List?> _downloadSprite(String? url) async {
+    if (url == null) return null;
+    HttpClient? client;
+    try {
+      client = HttpClient();
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) return null;
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        builder.add(chunk);
+      }
+      return builder.takeBytes();
+    } catch (_) {
+      return null;
+    } finally {
+      client?.close();
+    }
   }
 
   @override
@@ -241,6 +372,14 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               onTap: () => Navigator.of(context).maybePop(),
             ),
           ),
+          Positioned(
+            top: topPad + 12,
+            right: 16,
+            child: _RoundIconButton(
+              icon: Icons.ios_share,
+              onTap: _sharing ? null : _share,
+            ),
+          ),
           if (care != null)
             Positioned(
               right: 24,
@@ -267,11 +406,14 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(cat.name,
+              Flexible(
+                child: Text(_name,
                     style: theme.textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w600)),
               ),
+              const SizedBox(width: 4),
+              _PencilButton(onTap: _openRename),
+              const Spacer(),
               if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
             ],
           ),
@@ -374,7 +516,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
           child: Text(
             state.bondIsMax
                 ? 'Inseparable — the deepest bond 💛'
-                : 'Away a while? ${widget.cat.name} just wants a little '
+                : 'Away a while? $_name just wants a little '
                     'attention — never guilt.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -400,13 +542,14 @@ class _RoundIconButton extends StatelessWidget {
   const _RoundIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.85),
+      color: theme.colorScheme.surface
+          .withValues(alpha: onTap == null ? 0.5 : 0.85),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -417,6 +560,28 @@ class _RoundIconButton extends StatelessWidget {
           child: Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         ),
       ),
+    );
+  }
+}
+
+/// A small inline pencil next to the cat's name that opens the rename dialog.
+class _PencilButton extends StatelessWidget {
+  const _PencilButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return IconButton(
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      iconSize: 18,
+      color: theme.colorScheme.onSurfaceVariant,
+      tooltip: 'Rename',
+      icon: const Icon(Icons.edit_outlined),
     );
   }
 }
