@@ -92,6 +92,64 @@ void main() {
       expect(played.hunger, 80);
       expect(played.friendship, 6);
     });
+
+    test('grooming freshens hygiene, adds happiness, and bonds +1', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 80,
+        happiness: 40,
+        hygiene: 20,
+        mood: 'restless',
+        lastUpdated: DateTime.now(),
+        friendship: 4,
+      );
+      final groomed = care.groomed();
+      expect(groomed.hygiene, 100);
+      expect(groomed.happiness, 44);
+      expect(groomed.friendship, 5);
+    });
+
+    test('playing tires the cat a little (sleep)', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 80,
+        happiness: 40,
+        sleep: 100,
+        mood: 'content',
+        lastUpdated: DateTime.now(),
+        friendship: 0,
+      );
+      expect(care.played().sleep, 90);
+    });
+  });
+
+  group('CareState extra needs', () {
+    test('hygiene and play decay gently (~2/hour)', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 100,
+        happiness: 100,
+        hygiene: 100,
+        play: 100,
+        mood: 'content',
+        lastUpdated: DateTime.now().subtract(const Duration(hours: 10)),
+      );
+      expect(care.currentHygiene, 80);
+      expect(care.currentPlay, 80);
+    });
+
+    test('sleep recovers on its own while away', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 100,
+        happiness: 100,
+        sleep: 50,
+        mood: 'content',
+        lastUpdated: DateTime.now().subtract(const Duration(hours: 10)),
+      );
+      // +4/hour over 10h: 50 -> 90.
+      expect(care.currentSleep, 90);
+    });
   });
 
   group('Bond', () {

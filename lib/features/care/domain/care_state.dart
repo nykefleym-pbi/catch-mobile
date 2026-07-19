@@ -72,43 +72,82 @@ class CareState {
     required this.happiness,
     required this.mood,
     required this.lastUpdated,
+    this.hygiene = 100,
+    this.sleep = 100,
+    this.play = 100,
     this.friendship = 0,
   });
 
   final String catId;
 
-  /// Values as last written to the database (0–100). Use [currentHunger] /
-  /// [currentHappiness] for display so the decay-since-[lastUpdated] shows.
+  /// Values as last written to the database (0–100). Use the `currentX` getters
+  /// for display so the drift-since-[lastUpdated] shows.
   final int hunger;
   final int happiness;
+
+  /// Restored by grooming.
+  final int hygiene;
+
+  /// Recovers on its own while you're away; nudged down a little by play.
+  final int sleep;
+
+  /// The wish for playtime, restored by playing.
+  final int play;
+
   final String mood;
   final DateTime lastUpdated;
 
   /// The permanent bond score (from `cats.friendship_level`). Grows with care.
   final int friendship;
 
-  // ~[_decayPerHour] points/hour, floored at [_floor] so needs never bottom out.
-  static const int _decayPerHour = 3;
+  // Needs drift ~N points/hour, floored at [_floor] so they never bottom out.
   static const int _floor = 30;
 
-  int get currentHunger => _decayed(hunger);
-  int get currentHappiness => _decayed(happiness);
+  int get currentHunger => _decayed(hunger, 3);
+  int get currentHappiness => _decayed(happiness, 3);
+  int get currentHygiene => _decayed(hygiene, 2);
+  int get currentPlay => _decayed(play, 2);
 
-  int _decayed(int base) {
-    final hours = DateTime.now().difference(lastUpdated).inMinutes / 60.0;
+  /// Sleep is the kind one: it *recovers* over time (cats nap while you're
+  /// away), so returning after a break finds a well-rested friend.
+  int get currentSleep => _regened(sleep, 4);
+
+  double _hoursSince() =>
+      DateTime.now().difference(lastUpdated).inMinutes / 60.0;
+
+  int _decayed(int base, int perHour) {
+    final hours = _hoursSince();
     if (hours <= 0) return base.clamp(0, 100);
-    final decayed = (base - _decayPerHour * hours).round();
-    return decayed.clamp(_floor, 100);
+    return (base - perHour * hours).round().clamp(_floor, 100);
   }
 
-  /// A friendly mood label derived from the *current* (decayed) needs, so the
-  /// display feels alive even between writes.
+  int _regened(int base, int perHour) {
+    final hours = _hoursSince();
+    if (hours <= 0) return base.clamp(0, 100);
+    return (base + perHour * hours).round().clamp(0, 100);
+  }
+
+  /// A friendly mood label derived from the *current* needs that ask for
+  /// attention (sleep self-recovers, so it doesn't drag the mood down).
   String get currentMood {
-    final avg = (currentHunger + currentHappiness) / 2;
+    final avg =
+        (currentHunger + currentHappiness + currentHygiene + currentPlay) / 4;
     if (avg >= 85) return 'Blissful';
     if (avg >= 65) return 'Content';
     if (avg >= 45) return 'Restless';
     return 'Needy';
+  }
+
+  /// A gentle "last cared for" label for the header.
+  String get lastCaredLabel {
+    final d = DateTime.now().difference(lastUpdated);
+    if (d.inMinutes < 2) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    if (d.inHours < 24) {
+      return d.inHours == 1 ? 'an hour ago' : '${d.inHours} hours ago';
+    }
+    final days = d.inDays;
+    return days == 1 ? 'yesterday' : '$days days ago';
   }
 
   String get bondLabel => Bond.labelFor(friendship);
@@ -120,6 +159,9 @@ class CareState {
         catId: catId,
         hunger: 100,
         happiness: 100,
+        hygiene: 100,
+        sleep: 100,
+        play: 100,
         mood: 'content',
         lastUpdated: DateTime.now(),
         friendship: friendship,
@@ -130,6 +172,9 @@ class CareState {
         catId: map['cat_id'] as String,
         hunger: (map['hunger'] as num?)?.toInt() ?? 100,
         happiness: (map['happiness'] as num?)?.toInt() ?? 100,
+        hygiene: (map['hygiene'] as num?)?.toInt() ?? 100,
+        sleep: (map['sleep'] as num?)?.toInt() ?? 100,
+        play: (map['play'] as num?)?.toInt() ?? 100,
         mood: (map['mood'] as String?)?.trim().isNotEmpty == true
             ? map['mood'] as String
             : 'content',
@@ -146,6 +191,9 @@ class CareState {
         if (profileId != null) 'profile_id': profileId,
         'hunger': hunger,
         'happiness': happiness,
+        'hygiene': hygiene,
+        'sleep': sleep,
+        'play': play,
         'mood': mood,
         'last_updated': lastUpdated.toUtc().toIso8601String(),
       };
@@ -153,6 +201,9 @@ class CareState {
   CareState copyWith({
     int? hunger,
     int? happiness,
+    int? hygiene,
+    int? sleep,
+    int? play,
     String? mood,
     DateTime? lastUpdated,
     int? friendship,
@@ -161,37 +212,61 @@ class CareState {
         catId: catId,
         hunger: hunger ?? this.hunger,
         happiness: happiness ?? this.happiness,
+        hygiene: hygiene ?? this.hygiene,
+        sleep: sleep ?? this.sleep,
+        play: play ?? this.play,
         mood: mood ?? this.mood,
         lastUpdated: lastUpdated ?? this.lastUpdated,
         friendship: friendship ?? this.friendship,
       );
 
-  /// Feeding fills hunger, lifts spirits, and deepens the bond. The gains
-  /// depend on the treat chosen ([bondGain] / [happinessGain]); a plain feed
-  /// defaults to +1 bond. Built from the *current* decayed values so it's fair
-  /// no matter how long it's been.
-  CareState fed({int bondGain = 1, int happinessGain = 5}) {
+  /// A fresh snapshot at [DateTime.now], carrying every need forward at its
+  /// *current* (drifted) value unless overridden — so an action only changes
+  /// what it should, and the clock resets fairly no matter how long it's been.
+  CareState _snapshot({
+    int? hunger,
+    int? happiness,
+    int? hygiene,
+    int? sleep,
+    int? play,
+    int? friendship,
+  }) {
     final next = CareState(
       catId: catId,
-      hunger: 100,
-      happiness: (currentHappiness + happinessGain).clamp(0, 100),
+      hunger: hunger ?? currentHunger,
+      happiness: happiness ?? currentHappiness,
+      hygiene: hygiene ?? currentHygiene,
+      sleep: sleep ?? currentSleep,
+      play: play ?? currentPlay,
       mood: mood,
       lastUpdated: DateTime.now(),
-      friendship: friendship + bondGain,
+      friendship: friendship ?? this.friendship,
     );
     return next.copyWith(mood: next.currentMood.toLowerCase());
   }
 
-  /// Playing tops up happiness and bonds a little more than feeding (+2).
-  CareState played() {
-    final next = CareState(
-      catId: catId,
-      hunger: currentHunger,
-      happiness: 100,
-      mood: mood,
-      lastUpdated: DateTime.now(),
-      friendship: friendship + 2,
-    );
-    return next.copyWith(mood: next.currentMood.toLowerCase());
-  }
+  /// Feeding fills hunger, lifts spirits, and deepens the bond. The gains
+  /// depend on the treat chosen ([bondGain] / [happinessGain]); a plain feed
+  /// defaults to +1 bond.
+  CareState fed({int bondGain = 1, int happinessGain = 5}) => _snapshot(
+        hunger: 100,
+        happiness: (currentHappiness + happinessGain).clamp(0, 100),
+        friendship: friendship + bondGain,
+      );
+
+  /// Playing tops up the play + happiness needs, tires the cat out a touch
+  /// (sleep), and bonds a little more than feeding (+2).
+  CareState played() => _snapshot(
+        play: 100,
+        happiness: 100,
+        sleep: (currentSleep - 10).clamp(_floor, 100),
+        friendship: friendship + 2,
+      );
+
+  /// Grooming freshens up hygiene, adds a little happiness, and bonds (+1).
+  CareState groomed() => _snapshot(
+        hygiene: 100,
+        happiness: (currentHappiness + 4).clamp(0, 100),
+        friendship: friendship + 1,
+      );
 }

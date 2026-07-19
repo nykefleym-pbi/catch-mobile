@@ -124,6 +124,13 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         message: '$_name had fun 🧶',
       );
 
+  Future<void> _groom() => _runCare(
+        floater: '✨',
+        action: () =>
+            ref.read(careControllerProvider(widget.catId).notifier).groom(),
+        message: '$_name looks fresh and happy ✨',
+      );
+
   /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
   /// then a snackbar — celebrating a bond level-up when one happens.
   Future<void> _runCare({
@@ -488,6 +495,14 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Mood: ${_titleCase(state.currentMood)} · last cared for '
+          '${state.lastCaredLabel}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
         _Meter(
           label: 'Hunger',
           status: _hungerStatus(state.currentHunger),
@@ -501,7 +516,28 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
           value: state.currentHappiness / 100,
           gradient: const [AppTheme.sage, Color(0xFF8FB287)],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        _Meter(
+          label: 'Hygiene',
+          status: _hygieneStatus(state.currentHygiene),
+          value: state.currentHygiene / 100,
+          gradient: const [Color(0xFFF7D3C4), Color(0xFFEFA58C)],
+        ),
+        const SizedBox(height: 14),
+        _Meter(
+          label: 'Sleep',
+          status: _sleepStatus(state.currentSleep),
+          value: state.currentSleep / 100,
+          gradient: const [Color(0xFFE8C9A8), Color(0xFFC9AF97)],
+        ),
+        const SizedBox(height: 14),
+        _Meter(
+          label: 'Play',
+          status: _playStatus(state.currentPlay),
+          value: state.currentPlay / 100,
+          gradient: const [AppTheme.apricot, Color(0xFFE29254)],
+        ),
+        const SizedBox(height: 18),
         _BondHearts(
           filled: Bond.levelIndexFor(state.friendship) + 1,
           total: Bond.levelCount,
@@ -516,7 +552,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
                 child: const Text('Feed'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: FilledButton.tonal(
                 onPressed: _play,
@@ -525,6 +561,17 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
                   foregroundColor: theme.colorScheme.onSecondaryContainer,
                 ),
                 child: const Text('Play'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.tonal(
+                onPressed: _groom,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.tertiaryContainer,
+                  foregroundColor: theme.colorScheme.onTertiaryContainer,
+                ),
+                child: const Text('Groom'),
               ),
             ),
           ],
@@ -1040,6 +1087,8 @@ class _DetailsBody extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 22),
+        _GrowthTimeline(discoveredAt: cat.discoveredAt),
         Padding(
           padding: const EdgeInsets.only(top: 14),
           child: Text(
@@ -1050,6 +1099,132 @@ class _DetailsBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A gentle "growing up together" timeline. The current life stage is derived
+/// from how long you've known the cat — markings and personality never change,
+/// only this soft sense of time passing.
+class _GrowthTimeline extends StatelessWidget {
+  const _GrowthTimeline({required this.discoveredAt});
+
+  final DateTime? discoveredAt;
+
+  static const _stages = ['Kitten', 'Young', 'Adult', 'Senior'];
+
+  int get _index {
+    final d = discoveredAt;
+    if (d == null) return 0;
+    final days = DateTime.now().difference(d).inDays;
+    if (days < 30) return 0;
+    if (days < 120) return 1;
+    if (days < 365) return 2;
+    return 3;
+  }
+
+  String get _ageLabel {
+    final d = discoveredAt;
+    if (d == null) return 'newly met';
+    final days = DateTime.now().difference(d).inDays;
+    if (days < 1) return 'together since today';
+    if (days < 30) return 'together $days days';
+    final months = days ~/ 30;
+    if (months < 12) return 'together $months ${months == 1 ? 'month' : 'months'}';
+    final years = days ~/ 365;
+    return 'together $years ${years == 1 ? 'year' : 'years'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final index = _index;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'GROWING UP TOGETHER',
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          _ageLabel,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            for (var i = 0; i < _stages.length; i++) ...[
+              if (i > 0) const SizedBox(width: 6),
+              Expanded(
+                child: _StagePill(
+                  label: _stages[i],
+                  reached: i <= index,
+                  current: i == index,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Markings and personality never change — only gentle growth.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StagePill extends StatelessWidget {
+  const _StagePill({
+    required this.label,
+    required this.reached,
+    required this.current,
+  });
+
+  final String label;
+  final bool reached;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = current
+        ? AppTheme.apricot
+        : reached
+            ? AppTheme.peach
+            : theme.colorScheme.surfaceContainerHighest;
+    final fg = current
+        ? AppTheme.ink
+        : reached
+            ? const Color(0xFF8C5A2E)
+            : theme.colorScheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+        border: current
+            ? Border.all(color: AppTheme.terracotta, width: 1.5)
+            : null,
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: current ? FontWeight.w800 : FontWeight.w700,
+          color: fg,
+        ),
+      ),
     );
   }
 }
@@ -1262,4 +1437,25 @@ String _happyStatus(int v) {
   if (v >= 65) return 'Pretty content';
   if (v >= 45) return 'A bit restless';
   return 'Needs cheering';
+}
+
+String _hygieneStatus(int v) {
+  if (v >= 85) return 'Fresh & clean';
+  if (v >= 60) return 'Looking tidy';
+  if (v >= 40) return 'A bit of dust';
+  return 'Ready for a brush';
+}
+
+String _sleepStatus(int v) {
+  if (v >= 85) return 'Well-napped';
+  if (v >= 60) return 'Rested';
+  if (v >= 40) return 'A little sleepy';
+  return 'Yawning';
+}
+
+String _playStatus(int v) {
+  if (v >= 85) return 'Played out & happy';
+  if (v >= 60) return 'Content';
+  if (v >= 40) return 'Could use a little love';
+  return 'Wants to play';
 }

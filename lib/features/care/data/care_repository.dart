@@ -10,7 +10,8 @@ class CareRepository {
 
   final Ref _ref;
 
-  static const _columns = 'cat_id, hunger, happiness, mood, last_updated';
+  static const _columns =
+      'cat_id, hunger, happiness, hygiene, sleep, play, mood, last_updated';
 
   Future<CareState> fetch(String catId) async {
     final client = _ref.read(supabaseClientProvider);
@@ -80,6 +81,8 @@ class CareController extends StateNotifier<AsyncValue<CareState>> {
       _apply((c) => c.fed(bondGain: bondGain, happinessGain: happinessGain));
 
   Future<void> play() => _apply((c) => c.played());
+
+  Future<void> groom() => _apply((c) => c.groomed());
 
   Future<void> _apply(CareState Function(CareState) transform) async {
     final current = state.valueOrNull ?? CareState.initial(_catId);
