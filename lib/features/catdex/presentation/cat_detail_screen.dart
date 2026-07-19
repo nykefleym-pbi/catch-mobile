@@ -72,6 +72,9 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
   late String _name;
   bool _sharing = false;
 
+  /// Which sheet tab is showing: 0 = Story (care), 1 = Details (card back).
+  int _tab = 0;
+
   @override
   void initState() {
     super.initState();
@@ -417,50 +420,67 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            cat.story,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
+          const SizedBox(height: 16),
+          _SegTabs(index: _tab, onChanged: (i) => setState(() => _tab = i)),
+          const SizedBox(height: 18),
+          if (_tab == 0)
+            ..._storyChildren(cat, care)
+          else
+            _DetailsBody(
+              cat: cat,
+              friendship: care.valueOrNull?.friendship ?? 0,
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _metaLine(cat),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 20),
-          care.when(
-            loading: () => const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, __) => SizedBox(
-              height: 160,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Couldn't load care status."),
-                    const SizedBox(height: 12),
-                    FilledButton.tonal(
-                      onPressed: () => ref
-                          .read(careControllerProvider(widget.catId).notifier)
-                          .load(),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            data: _careBody,
-          ),
         ],
       ),
     );
+  }
+
+  /// The Story tab: the cat's backstory, where/when you met, then the live
+  /// care body (meters, bond, feed + play).
+  List<Widget> _storyChildren(Cat cat, AsyncValue<CareState> care) {
+    final theme = Theme.of(context);
+    return [
+      Text(
+        cat.story,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          height: 1.5,
+        ),
+      ),
+      const SizedBox(height: 6),
+      Text(
+        _metaLine(cat),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 20),
+      care.when(
+        loading: () => const SizedBox(
+          height: 200,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (_, __) => SizedBox(
+          height: 160,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Couldn't load care status."),
+                const SizedBox(height: 12),
+                FilledButton.tonal(
+                  onPressed: () => ref
+                      .read(careControllerProvider(widget.catId).notifier)
+                      .load(),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        data: _careBody,
+      ),
+    ];
   }
 
   Widget _careBody(CareState state) {
@@ -501,8 +521,8 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               child: FilledButton.tonal(
                 onPressed: _play,
                 style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.tertiaryContainer,
-                  foregroundColor: theme.colorScheme.onTertiaryContainer,
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  foregroundColor: theme.colorScheme.onSecondaryContainer,
                 ),
                 child: const Text('Play'),
               ),
@@ -878,6 +898,343 @@ class _TraitChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The Story / Details segmented toggle at the top of the sheet.
+class _SegTabs extends StatelessWidget {
+  const _SegTabs({required this.index, required this.onChanged});
+
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _seg(context, 'Story', 0),
+          _seg(context, 'Details', 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(BuildContext context, String label, int i) {
+    final theme = Theme.of(context);
+    final selected = index == i;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(i),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? theme.colorScheme.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.ink.withValues(alpha: 0.10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "card back": a warm stat sheet layered as the Details tab. Every figure
+/// is a playful, clearly-labelled estimate derived deterministically from the
+/// cat's id, so the same cat always reads the same — never presented as fact.
+class _DetailsBody extends StatelessWidget {
+  const _DetailsBody({required this.cat, required this.friendship});
+
+  final Cat cat;
+  final int friendship;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final seed = _stableHash(cat.id);
+    final favorite = kTreats[seed % kTreats.length];
+    final moods = _idleMoods(seed);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FactTile(
+          label: 'BREED ESTIMATE',
+          value: _breeds[seed % _breeds.length],
+          note: 'our friendly best guess',
+        ),
+        const SizedBox(height: 12),
+        _FactTile(
+          label: 'AGE & WEIGHT (EST.)',
+          value: '${_ages[(seed ~/ 7) % _ages.length]} · ~${_weightKg(seed)} kg',
+          note: 'a very healthy loaf',
+        ),
+        const SizedBox(height: 12),
+        _FactTile(
+          label: 'FAVOURITE FOOD',
+          value: '${favorite.emoji}  ${favorite.label}',
+          note: 'a firm favourite of theirs',
+        ),
+        const SizedBox(height: 12),
+        _FactTile(
+          label: 'IDLE MOODS',
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final m in moods) _MiniChip(label: m)],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'BADGES TOGETHER',
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            const _BadgeChip(
+              label: 'First hello',
+              icon: Icons.waving_hand_outlined,
+              earned: true,
+            ),
+            _BadgeChip(
+              label: 'Best friends',
+              icon: Icons.favorite,
+              earned: friendship >= 50,
+            ),
+            const _BadgeChip(
+              label: 'A surprise…',
+              icon: Icons.help_outline,
+              earned: false,
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Text(
+            'Story first, stats second — the estimates are just for fun.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A single warm fact tile: a caps label over either a [value] (+ optional
+/// [note]) or a custom [child] (e.g. a row of chips).
+class _FactTile extends StatelessWidget {
+  const _FactTile({required this.label, this.value, this.note, this.child});
+
+  final String label;
+  final String? value;
+  final String? note;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (child != null)
+            child!
+          else ...[
+            Text(
+              value ?? '',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            if (note != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                note!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A small sage chip used for idle-mood tags.
+class _MiniChip extends StatelessWidget {
+  const _MiniChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onSecondaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+/// An earned or still-locked "badge together". Locked badges show a padlock and
+/// muted outline — a gentle nudge, never a scolding.
+class _BadgeChip extends StatelessWidget {
+  const _BadgeChip({
+    required this.label,
+    required this.icon,
+    required this.earned,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool earned;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mutedColor =
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    final color = earned ? const Color(0xFF8C5A2E) : mutedColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: earned ? AppTheme.peach : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+        border: earned ? null : Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(earned ? icon : Icons.lock_outline, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small, stable hash of the cat id so its playful estimates never change.
+int _stableHash(String s) {
+  var h = 7;
+  for (final c in s.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return h;
+}
+
+const _breeds = [
+  'Domestic shorthair',
+  'Domestic longhair',
+  'Tabby mix',
+  'Tuxedo mix',
+  'Calico mix',
+  'Tortoiseshell mix',
+  'Ginger mix',
+  'Grey shorthair',
+];
+
+const _ages = [
+  'a playful kitten',
+  '~1 year old',
+  '~2 years old',
+  '~3 years old',
+  '~4 years old',
+  '~5 years old',
+  'a wise senior',
+];
+
+String _weightKg(int seed) {
+  final tenths = 32 + (seed % 22); // 3.2–5.3 kg
+  return (tenths / 10).toStringAsFixed(1);
+}
+
+const _moodPool = [
+  'Sunbathe',
+  'Loaf',
+  'Chirp',
+  'Knead',
+  'Pounce',
+  'Doze',
+  'Perch',
+  'Explore',
+  'Snuggle',
+  'Groom',
+];
+
+List<String> _idleMoods(int seed) {
+  final pool = List<String>.from(_moodPool);
+  final picks = <String>[];
+  var s = seed;
+  while (picks.length < 3 && pool.isNotEmpty) {
+    picks.add(pool.removeAt(s % pool.length));
+    s = (s ~/ 3) + 17;
+  }
+  return picks;
 }
 
 const _months = [

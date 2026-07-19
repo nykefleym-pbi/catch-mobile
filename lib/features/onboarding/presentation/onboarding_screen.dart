@@ -280,7 +280,7 @@ class _LocationPage extends StatelessWidget {
           ]),
         ),
         _InfoCard(
-          chipColor: theme.colorScheme.tertiaryContainer,
+          chipColor: theme.colorScheme.secondaryContainer,
           icon: Icons.blur_on,
           iconColor: isLight ? const Color(0xFF6E8C66) : AppTheme.sage,
           text: const TextSpan(
@@ -414,7 +414,7 @@ class _CameraPage extends StatelessWidget {
           ]),
         ),
         _InfoCard(
-          chipColor: theme.colorScheme.tertiaryContainer,
+          chipColor: theme.colorScheme.secondaryContainer,
           icon: Icons.pets,
           iconColor: isLight ? const Color(0xFF6E8C66) : AppTheme.sage,
           text: const TextSpan(

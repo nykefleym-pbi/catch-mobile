@@ -135,7 +135,7 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color =
-        selected ? theme.colorScheme.secondary : const Color(0xFFA08A76);
+        selected ? theme.colorScheme.tertiary : const Color(0xFFA08A76);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -174,8 +174,8 @@ class _CaptureButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 62,
-          height: 62,
+          width: 68,
+          height: 68,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppTheme.apricot,
@@ -188,7 +188,7 @@ class _CaptureButton extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(Icons.pets, color: Color(0xFFFFF7EF), size: 26),
+          child: const Icon(Icons.pets, color: Color(0xFFFFF7EF), size: 28),
         ),
       ),
     );

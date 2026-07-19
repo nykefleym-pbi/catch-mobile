@@ -231,7 +231,7 @@ class _RankPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer,
+        color: theme.colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -304,7 +304,7 @@ class _StatCell extends StatelessWidget {
           value,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: theme.colorScheme.secondary,
+            color: theme.colorScheme.tertiary,
           ),
         ),
         const SizedBox(height: 2),

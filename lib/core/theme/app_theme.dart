@@ -19,7 +19,8 @@ class AppTheme {
 
   // Light neutrals
   static const _pageLight = Color(0xFFF0EAE1); // scaffold background
-  static const _surfaceLight = Color(0xFFFFFDF8); // cards
+  static const _surfaceLight = Color(0xFFFFF7EF); // surface (design token)
+  static const _containerLight = Color(0xFFFFFDF8); // surface-container (cards)
   static const _surfaceLightAlt = Color(0xFFF3E9DF);
   static const _borderLight = Color(0xFFEBDDCB);
   static const ink = Color(0xFF3E2F26); // primary text
@@ -37,7 +38,7 @@ class AppTheme {
   static const radiusCard = 20.0;
   static const radiusButton = 16.0;
   static const radiusSheet = 28.0;
-  static const radiusChip = 12.0;
+  static const radiusChip = 10.0;
 
   /// Soft warm card shadow (matches the design's `0 14px 34px rgba(62,47,38,.12)`).
   static List<BoxShadow> cardShadow(Brightness b) => [
@@ -60,13 +61,15 @@ class AppTheme {
       onPrimary: ink,
       primaryContainer: isLight ? peach : _surfaceDarkAlt,
       onPrimaryContainer: isLight ? ink : _inkDark,
-      secondary: terracotta,
-      onSecondary: const Color(0xFFFFF7EF),
-      secondaryContainer: isLight ? const Color(0xFFF7D9CE) : _surfaceDarkAlt,
+      // Roles follow the design sheet: secondary = sage (nature/calm),
+      // tertiary = terracotta (the accent / CTA colour).
+      secondary: sage,
+      onSecondary: const Color(0xFF2E3A2A),
+      secondaryContainer: isLight ? const Color(0xFFDEEAD9) : _surfaceDarkAlt,
       onSecondaryContainer: isLight ? ink : _inkDark,
-      tertiary: sage,
-      onTertiary: const Color(0xFF25301F),
-      tertiaryContainer: isLight ? const Color(0xFFDEEAD9) : _surfaceDarkAlt,
+      tertiary: terracotta,
+      onTertiary: const Color(0xFFFFF7EF),
+      tertiaryContainer: isLight ? const Color(0xFFF7D9CE) : _surfaceDarkAlt,
       onTertiaryContainer: isLight ? ink : _inkDark,
       error: const Color(0xFFB3583F),
       onError: const Color(0xFFFFF7EF),
@@ -126,7 +129,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: isLight ? _surfaceLight : _surfaceDark,
+        color: isLight ? _containerLight : _surfaceDark,
         elevation: 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -139,9 +142,9 @@ class AppTheme {
           foregroundColor: scheme.onPrimary,
           textStyle:
               GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radiusButton)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          // Primary CTAs are pills in the design sheet.
+          shape: const StadiumBorder(),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -151,14 +154,13 @@ class AppTheme {
           elevation: 0,
           textStyle:
               GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radiusButton)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          shape: const StadiumBorder(),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: scheme.secondary,
+          foregroundColor: scheme.tertiary,
           textStyle:
               GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 15),
         ),

@@ -396,7 +396,7 @@ class _LocateButton extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Icon(Icons.my_location,
-                  size: 20, color: theme.colorScheme.secondary),
+                  size: 20, color: theme.colorScheme.tertiary),
         ),
       ),
     );

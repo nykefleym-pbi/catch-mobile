@@ -499,7 +499,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           'A new fur-iend!',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            color: theme.colorScheme.secondary,
+                            color: theme.colorScheme.tertiary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1193,7 +1193,7 @@ class _ResultSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final success = tone == _ResultTone.success;
     final chipColor = success
-        ? theme.colorScheme.tertiaryContainer
+        ? theme.colorScheme.secondaryContainer
         : theme.colorScheme.primaryContainer;
     final dotColor = success ? const Color(0xFF6E8C66) : AppTheme.terracotta;
     return Container(
