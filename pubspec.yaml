@@ -44,6 +44,9 @@ dependencies:
   # Sharing a companion (sprite + story) to other apps.
   share_plus: ^10.0.0
 
+  # Remembering that the welcome + consent flow has been completed (first launch).
+  shared_preferences: ^2.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

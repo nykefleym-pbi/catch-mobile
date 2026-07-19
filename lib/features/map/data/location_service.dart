@@ -36,6 +36,22 @@ class LocationService {
       return const LocationResult(error: "Couldn't find your location.");
     }
   }
+
+  /// Prompts for location permission during the onboarding consent step and
+  /// reports whether it ended up granted. Never throws — a decline is a normal
+  /// outcome the flow handles by continuing on to a sample map.
+  Future<bool> requestPermission() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      return permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
+    } catch (_) {
+      return false;
+    }
+  }
 }
 
 final locationServiceProvider = Provider<LocationService>((ref) {

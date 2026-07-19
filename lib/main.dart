@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/env.dart';
+import 'features/onboarding/data/onboarding_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Resolve persisted preferences up front so the router can decide the
+  // first-launch onboarding gate synchronously.
+  final prefs = await SharedPreferences.getInstance();
 
   // Initialize Supabase if configured. The app still boots without it so the
   // UI/scaffold can be worked on before a backend exists.
@@ -34,7 +40,10 @@ Future<void> main() async {
     }
   }
 
-  Widget appRoot() => const ProviderScope(child: CatchApp());
+  Widget appRoot() => ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const CatchApp(),
+      );
 
   // Wrap in Sentry only when a DSN is supplied (ADR 0002); otherwise run plain.
   if (Env.hasSentry) {

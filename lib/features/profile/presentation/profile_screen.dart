@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/placeholder_scaffold.dart';
+import '../../../data/supabase/supabase_providers.dart';
+import '../../auth/data/auth_repository.dart';
+import '../../catdex/data/cats_repository.dart';
 import '../data/guardian_repository.dart';
 import '../domain/guardian_profile.dart';
 
@@ -96,6 +101,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          const _AccountCard(),
           const SizedBox(height: 24),
           const _PrivacyCard(),
         ],
@@ -383,6 +390,124 @@ class _PrivacyCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cloud sync for grown-ups: back the CatDex up to an account, or show the
+/// signed-in email with a way out. Watches auth state so it flips the instant
+/// the guardian links, signs in, or signs out.
+class _AccountCard extends ConsumerStatefulWidget {
+  const _AccountCard();
+
+  @override
+  ConsumerState<_AccountCard> createState() => _AccountCardState();
+}
+
+class _AccountCardState extends ConsumerState<_AccountCard> {
+  bool _busy = false;
+
+  Future<void> _signOut() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    await ref.read(authRepositoryProvider).signOut();
+    if (!mounted) return;
+    ref.invalidate(guardianProfileProvider);
+    ref.invalidate(catsProvider);
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Signed out — back to a local guest 🐾'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Env.hasSupabase) return const SizedBox.shrink();
+    // Rebuild whenever the session changes (link / sign in / sign out).
+    ref.watch(authStateProvider);
+    final theme = Theme.of(context);
+    final auth = ref.read(authRepositoryProvider);
+    final signedIn = auth.isCloudAccount;
+
+    return _SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(signedIn ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+                  size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                signedIn ? 'Backed up to the cloud' : 'Back up to the cloud',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            signedIn
+                ? 'Signed in as ${auth.email}. Your CatDex syncs to any device '
+                    'you sign in on.'
+                : 'Grown-ups can save their CatDex to the cloud and sync it '
+                    'across devices. Your cats stay on this device until you do.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (signedIn)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _busy ? null : _signOut,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: theme.colorScheme.onSurface,
+                  side: BorderSide(color: theme.colorScheme.outline),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      )
+                    : const Text('Sign out'),
+              ),
+            )
+          else ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () =>
+                    context.push(AppRoutes.account, extra: true),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                ),
+                child: const Text('Create an account'),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton(
+                onPressed: () => context.push(AppRoutes.account),
+                child: const Text('I already have an account'),
+              ),
+            ),
+          ],
         ],
       ),
     );
