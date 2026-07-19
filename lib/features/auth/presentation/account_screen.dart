@@ -19,18 +19,20 @@ enum _Mode { signIn, createAccount }
 /// bows out (completing onboarding if the guardian reached it from the welcome
 /// flow).
 class AccountScreen extends ConsumerStatefulWidget {
-  /// Named constructors keep the router call-sites readable.
-  const AccountScreen.signIn({super.key}) : initialMode = _Mode.signIn;
-  const AccountScreen.create({super.key}) : initialMode = _Mode.createAccount;
+  /// Named constructors keep the router call-sites readable. The flag stays a
+  /// plain bool so no private type leaks into this public widget's API.
+  const AccountScreen.signIn({super.key}) : startInCreate = false;
+  const AccountScreen.create({super.key}) : startInCreate = true;
 
-  final _Mode initialMode;
+  final bool startInCreate;
 
   @override
   ConsumerState<AccountScreen> createState() => _AccountScreenState();
 }
 
 class _AccountScreenState extends ConsumerState<AccountScreen> {
-  late _Mode _mode = widget.initialMode;
+  late _Mode _mode =
+      widget.startInCreate ? _Mode.createAccount : _Mode.signIn;
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;

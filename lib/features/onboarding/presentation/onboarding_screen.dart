@@ -504,7 +504,7 @@ class _GuardianNote extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text.rich(
-              TextSpan(children: const [
+              const TextSpan(children: [
                 TextSpan(
                   text: 'Playing with a grown-up? ',
                   style: TextStyle(fontWeight: FontWeight.w800),
@@ -737,7 +737,7 @@ class _CatMark extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         color: AppTheme.peach,
       ),
