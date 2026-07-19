@@ -417,16 +417,14 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
             ],
           ),
-          if (cat.blurb != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              cat.blurb!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
+          const SizedBox(height: 10),
+          Text(
+            cat.story,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.5,
             ),
-          ],
+          ),
           const SizedBox(height: 6),
           Text(
             _metaLine(cat),

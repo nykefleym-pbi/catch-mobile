@@ -29,6 +29,14 @@ class CatsRepository {
     final client = _ref.read(supabaseClientProvider);
     await client.from('cats').update({'name': name}).eq('id', catId);
   }
+
+  /// Removes a caught cat. Used when the player taps "Retake photo" on the
+  /// reveal to discard the companion that was just generated. RLS scopes the
+  /// delete to the signed-in user's own rows.
+  Future<void> delete(String catId) async {
+    final client = _ref.read(supabaseClientProvider);
+    await client.from('cats').delete().eq('id', catId);
+  }
 }
 
 final catsRepositoryProvider = Provider<CatsRepository>((ref) {

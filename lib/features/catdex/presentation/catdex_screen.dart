@@ -146,13 +146,8 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
                   onRefresh: widget.onRefresh,
                   child: ListView(
                     children: const [
-                      SizedBox(height: 80),
-                      _CatDexMessage(
-                        icon: Icons.pets_outlined,
-                        title: 'No cats yet',
-                        body: 'Tap the camera and catch your first cat —\n'
-                            'they\'ll appear here as a page in your journal.',
-                      ),
+                      SizedBox(height: 40),
+                      _ScrapbookEmpty(),
                     ],
                   ),
                 );
@@ -368,6 +363,72 @@ class _CatCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// First-run empty state for the CatDex — a waiting scrapbook, per the design.
+class _ScrapbookEmpty extends StatelessWidget {
+  const _ScrapbookEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Column(
+        children: [
+          // A softly striped "blank page" circle cradling a faded paw.
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  theme.colorScheme.surfaceContainerHigh,
+                  theme.colorScheme.surface,
+                ],
+              ),
+            ),
+            child: Icon(
+              Icons.pets,
+              size: 34,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Your scrapbook is waiting',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Every cat you meet on a walk gets a page here. The neighborhood '
+            'is full of stories — go say hi.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.55,
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: () => context.go(AppRoutes.map),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
+            ),
+            child: const Text('Open the map'),
+          ),
+        ],
       ),
     );
   }

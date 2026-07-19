@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
@@ -12,8 +13,10 @@ import '../../catdex/data/cats_repository.dart';
 import '../data/guardian_repository.dart';
 import '../domain/guardian_profile.dart';
 
-/// Guardian profile: identity, rank, and the kindness stats that earn it.
-/// Rank is grown by caring for cats, never combat (docs/product/01-vision.md).
+/// Guardian profile — calm and uncluttered, from the "Cat-ch Mobile UI" design
+/// (turn 7): identity, a warm 3-stat summary, a journey note, cloud account,
+/// and privacy-first settings. Rank is grown by kindness, never combat
+/// (docs/product/01-vision.md).
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -49,65 +52,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _content(GuardianProfile p) {
-    final theme = Theme.of(context);
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(guardianProfileProvider);
         await ref.read(guardianProfileProvider.future);
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
         children: [
-          Text('Guardian', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Your kindness, made visible.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _Header(profile: p, onEdit: () => _editName(p.displayName)),
-          const SizedBox(height: 20),
-          _RankCard(profile: p),
+          _ProfileHeader(profile: p, onEdit: () => _editName(p.displayName)),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.pets,
-                  value: '${p.catsCount}',
-                  label: 'Cats',
-                  tint: AppTheme.peach,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.favorite,
-                  value: '${p.totalBond}',
-                  label: 'Total bond',
-                  tint: const Color(0xFFF7D9CE),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.volunteer_activism,
-                  value: '${p.score}',
-                  label: 'Kindness',
-                  tint: const Color(0xFFDEEAD9),
-                ),
-              ),
-            ],
-          ),
+          _StatsCard(profile: p),
+          const SizedBox(height: 16),
+          _JourneyCard(text: _journeyText(p)),
           const SizedBox(height: 16),
           const _AccountCard(),
-          const SizedBox(height: 24),
-          const _PrivacyCard(),
+          const SizedBox(height: 16),
+          const _SettingsCard(),
+          const SizedBox(height: 16),
+          Text(
+            'Your map and photos are yours alone unless you share them.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
+          ),
         ],
       ),
     );
+  }
+
+  String _journeyText(GuardianProfile p) {
+    if (p.catsCount == 0) {
+      return 'Your journey is just beginning. Head out for a walk and say '
+          'hello to your first fur-iend.';
+    }
+    final cats = p.catsCount == 1 ? 'one cat' : '${p.catsCount} cats';
+    final places = p.placesExplored <= 1
+        ? 'your neighbourhood'
+        : '${p.placesExplored} corners of the map';
+    return "You've befriended $cats across $places, sharing ${p.totalBond} "
+        'moments of care along the way. Rank: ${p.rankLabel}.';
   }
 
   Future<void> _editName(String? current) async {
@@ -175,8 +161,8 @@ class _SoftCard extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.profile, required this.onEdit});
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile, required this.onEdit});
 
   final GuardianProfile profile;
   final VoidCallback onEdit;
@@ -185,65 +171,85 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = profile.displayName ?? 'Guest Guardian';
-    return _SoftCard(
-      child: Column(
-        children: [
-          Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.volunteer_activism,
-              size: 38,
-              color: theme.colorScheme.onPrimaryContainer,
-            ),
+    return Row(
+      children: [
+        Container(
+          width: 84,
+          height: 84,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.peach,
+            border: Border.all(color: AppTheme.apricot, width: 3),
           ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: const Icon(Icons.pets, size: 36, color: AppTheme.terracotta),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
-                child: Text(
-                  name,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onEdit,
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit Guardian name',
+                  ),
+                ],
               ),
-              const SizedBox(width: 2),
-              IconButton(
-                onPressed: onEdit,
-                visualDensity: VisualDensity.compact,
-                iconSize: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Edit Guardian name',
-              ),
+              const SizedBox(height: 4),
+              _RankPill(label: profile.rankLabel),
             ],
           ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.peach,
-              borderRadius: BorderRadius.circular(44),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.workspace_premium,
-                    size: 15, color: Color(0xFF8C5A2E)),
-                const SizedBox(width: 6),
-                Text(
-                  profile.rankLabel,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF8C5A2E),
-                  ),
-                ),
-              ],
+        ),
+      ],
+    );
+  }
+}
+
+class _RankPill extends StatelessWidget {
+  const _RankPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.pets,
+              size: 14,
+              color: isLight ? const Color(0xFF6E8C66) : AppTheme.sage),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: isLight ? const Color(0xFF2E3A2A) : theme.colorScheme.onSurface,
+              ),
             ),
           ),
         ],
@@ -252,61 +258,30 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _RankCard extends StatelessWidget {
-  const _RankCard({required this.profile});
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.profile});
 
   final GuardianProfile profile;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    Widget divider() => Container(width: 1, height: 40, color: theme.colorScheme.outline);
     return _SoftCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.workspace_premium,
-                  size: 20, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text('Guardian rank',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const Spacer(),
-              Text(
-                profile.rankLabel,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Expanded(
+            child: _StatCell(value: '${profile.catsCount}', label: 'cats met'),
           ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: profile.rankProgress),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeOut,
-              builder: (context, v, _) => LinearProgressIndicator(
-                value: v,
-                minHeight: 14,
-                backgroundColor: theme.brightness == Brightness.light
-                    ? const Color(0xFFF0E4D4)
-                    : const Color(0xFF3C332B),
-                color: theme.colorScheme.primary,
-              ),
-            ),
+          divider(),
+          Expanded(
+            child: _StatCell(
+                value: '${profile.placesExplored}', label: 'places explored'),
           ),
-          const SizedBox(height: 10),
-          Text(
-            profile.rankIsMax
-                ? 'The highest honour — a true friend to cats 💛'
-                : '${profile.pointsToNextRank} kindness to your next rank',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          divider(),
+          Expanded(
+            child: _StatCell(value: '${profile.totalBond}', label: 'bond shared'),
           ),
         ],
       ),
@@ -314,83 +289,156 @@ class _RankCard extends StatelessWidget {
   }
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.tint,
-  });
+class _StatCell extends StatelessWidget {
+  const _StatCell({required this.value, required this.label});
 
-  final IconData icon;
   final String value;
   final String label;
-  final Color tint;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return _SoftCard(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: theme.colorScheme.onSurface),
+    return Column(
+      children: [
+        Text(
+          value,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.secondary,
           ),
-          const SizedBox(height: 10),
-          Text(value,
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _PrivacyCard extends StatelessWidget {
-  const _PrivacyCard();
+class _JourneyCard extends StatelessWidget {
+  const _JourneyCard({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: theme.colorScheme.outline),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Text.rich(
+        TextSpan(children: [
+          const TextSpan(
+            text: 'Your journey so far — ',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          TextSpan(text: text),
+        ]),
+        style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _SoftCard(
+      padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          Icon(Icons.shield_outlined,
-              size: 20, color: theme.colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Your privacy is protected. Locations are only ever stored '
-              'fuzzed, and the photos you capture are never saved — they are '
-              'discarded the moment a companion is generated.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
+          _SettingRow(
+            chipColor: theme.colorScheme.primaryContainer,
+            icon: Icons.shield_outlined,
+            iconColor: AppTheme.terracotta,
+            title: 'Privacy',
+            subtitle: 'Location: neighbourhood only · never precise',
+          ),
+          Divider(height: 1, color: theme.colorScheme.outline),
+          _SettingRow(
+            chipColor: theme.colorScheme.surfaceContainerHigh,
+            icon: Icons.tune,
+            iconColor: theme.colorScheme.onSurfaceVariant,
+            title: 'Permissions',
+            subtitle: 'Manage camera & location access',
+            onTap: () => openAppSettings(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({
+    required this.chipColor,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final Color chipColor;
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: chipColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 17, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: theme.textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              Icon(Icons.chevron_right,
+                  size: 20, color: theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }
@@ -429,7 +477,6 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (!Env.hasSupabase) return const SizedBox.shrink();
     // Rebuild whenever the session changes (link / sign in / sign out).
     ref.watch(authStateProvider);
     final theme = Theme.of(context);
@@ -490,8 +537,7 @@ class _AccountCardState extends ConsumerState<_AccountCard> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () =>
-                    context.push(AppRoutes.account, extra: true),
+                onPressed: () => context.push(AppRoutes.account, extra: true),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(

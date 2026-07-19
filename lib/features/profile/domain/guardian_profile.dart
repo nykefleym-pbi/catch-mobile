@@ -65,11 +65,15 @@ class GuardianProfile {
     required this.displayName,
     required this.catsCount,
     required this.totalBond,
+    this.placesExplored = 0,
   });
 
   final String? displayName;
   final int catsCount;
   final int totalBond;
+
+  /// Distinct fuzzed neighbourhoods where the player has met a cat.
+  final int placesExplored;
 
   /// Kindness score: befriending cats and deepening each bond both count.
   int get score => catsCount * 3 + totalBond;
@@ -79,6 +83,10 @@ class GuardianProfile {
   bool get rankIsMax => GuardianRank.isMax(score);
   int get pointsToNextRank => GuardianRank.toNext(score);
 
-  static const GuardianProfile empty =
-      GuardianProfile(displayName: null, catsCount: 0, totalBond: 0);
+  static const GuardianProfile empty = GuardianProfile(
+    displayName: null,
+    catsCount: 0,
+    totalBond: 0,
+    placesExplored: 0,
+  );
 }

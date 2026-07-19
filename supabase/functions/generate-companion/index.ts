@@ -676,19 +676,37 @@ const LOCAL_NAMES = [
   "Cocoa", "Dill", "Fig", "Honey",
 ];
 
-const LOCAL_BLURBS = [
-  "Found mid-adventure and ready for a cozy new chapter.",
-  "Small paws, big personality — an instant favourite.",
-  "Wandered in from the neighbourhood with plenty of charm.",
-  "Curled up in your journal like it always belonged there.",
-  "A soft-hearted explorer with a knack for finding sunbeams.",
-];
+// Warm, trait-flavoured backstories so every locally-named cat still reads as a
+// little character. Keyed by trait so the blurb matches the personality chip.
+const TRAIT_BLURBS: Record<string, string> = {
+  curious:
+    "Nose into everything, this one — every open door is a mystery worth solving.",
+  brave:
+    "Fears neither vacuum nor thunder; guards the windowsill like a tiny, fearless knight.",
+  lazy:
+    "A connoisseur of sunbeams and long afternoons, with a full-time career in napping.",
+  foodie:
+    "Believes every doorstep hides a snack, and greets each meal like a small festival.",
+  mischievous:
+    "Knocks pens off tables purely for science, then blinks at you with total innocence.",
+  elegant:
+    "Moves like poured cream and expects — quite reasonably — to be admired.",
+  playful:
+    "Would chase a leaf to the ends of the earth, then present it to you as treasure.",
+  protective:
+    "Keeps a careful eye on their people and their patch, always first to check a noise.",
+  explorer:
+    "Maps the whole neighbourhood one fence at a time, home only for dinner and a debrief.",
+  shy:
+    "Watches from beneath the sofa at first — but win them over and you have a friend for life.",
+};
 
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function localMeta(): CompanionMeta {
+  const trait = pick(TRAIT_IDS);
   return {
     name: pick(LOCAL_NAMES),
     coat_color: "unknown",
@@ -696,8 +714,9 @@ function localMeta(): CompanionMeta {
     eye_color: "unknown",
     tail: "unknown",
     markings: "none noted",
-    trait_id: pick(TRAIT_IDS),
-    blurb: pick(LOCAL_BLURBS),
+    trait_id: trait,
+    blurb: TRAIT_BLURBS[trait] ??
+      "A soft-hearted wanderer who picked your neighbourhood to call home.",
   };
 }
 

@@ -10,6 +10,16 @@ import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
 import '../data/location_service.dart';
 
+/// Warms the cold default OSM raster tiles into a soft pastel "storybook"
+/// palette: nudge channels toward amber, ease off the blues, and lift the
+/// midtones so the map reads cozy rather than utilitarian.
+const _cozyMapMatrix = <double>[
+  0.93, 0.11, 0.04, 0, 8, //
+  0.06, 0.91, 0.05, 0, 6, //
+  0.05, 0.12, 0.79, 0, -2, //
+  0, 0, 0, 1, 0, //
+];
+
 /// Cozy exploration map — a "memory map" of where you met each cat. Renders free
 /// OpenStreetMap tiles (no API key), drops a pin for every caught cat that has a
 /// coarse location, and can recenter on the player. Tapping a cat opens its
@@ -114,9 +124,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               maxZoom: 18,
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.catch_mobile',
+              // Cozy re-theme: the default OpenStreetMap raster tiles are cold
+              // and utilitarian, so we warm them into a soft pastel "storybook"
+              // palette with a colour matrix — honouring the cozy-map art
+              // direction while keeping the free, key-less raster tiles (a full
+              // MapLibre vector-tile theme is a larger, provider-keyed follow-up).
+              ColorFiltered(
+                colorFilter: const ColorFilter.matrix(_cozyMapMatrix),
+                child: TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.catch_mobile',
+                ),
               ),
               MarkerLayer(
                 markers: [
@@ -149,6 +167,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
             ],
+          ),
+          // A soft warm vignette frames the map cozily (transparent centre so
+          // pins stay crisp) — a gentle "golden hour" wash over the tiles.
+          const Positioned.fill(
+            child: IgnorePointer(child: _MapVignette()),
           ),
           // Top-center "memory map" pill.
           Positioned(
@@ -184,6 +207,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A soft warm vignette over the tiles — transparent in the middle so pins and
+/// the player stay crisp, deepening to a gentle warm shade at the edges.
+class _MapVignette extends StatelessWidget {
+  const _MapVignette();
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final edge = (isLight ? AppTheme.ink : Colors.black)
+        .withValues(alpha: isLight ? 0.12 : 0.28);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          radius: 1.1,
+          colors: [Colors.transparent, edge],
+          stops: const [0.68, 1.0],
+        ),
       ),
     );
   }

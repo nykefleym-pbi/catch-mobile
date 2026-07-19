@@ -21,7 +21,8 @@ import '../domain/cat_detector.dart';
 /// companion (docs/architecture/07-ai-pipeline.md).
 ///
 /// Stages: live camera → on-device ML Kit gate → generation → caught reveal →
-/// CatDex.
+/// CatDex. The viewfinder, detection copy, generating polaroid, and reveal are
+/// styled from the "Cat-ch Mobile UI" design (turns 3 & 4).
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
@@ -180,6 +181,22 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     }
   }
 
+  /// "Retake photo" from the reveal: the companion was already generated and
+  /// saved, so discard it (best-effort) before returning to the camera.
+  Future<void> _discardAndRetake() async {
+    final cat = _caughtCat;
+    if (cat != null) {
+      try {
+        await ref.read(catsRepositoryProvider).delete(cat.id);
+        ref.invalidate(catsProvider);
+      } catch (_) {
+        // Best-effort — a lingering companion can still be removed later.
+      }
+    }
+    if (!mounted) return;
+    _retake();
+  }
+
   /// Send the accepted photo to the `generate-companion` Edge Function, which
   /// turns it into a companion and stores it in the CatDex.
   Future<void> _onKeep() async {
@@ -235,15 +252,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Warm-background panes (generating polaroid, caught reveal) provide their
+    // own chrome, so the dark camera close button would look out of place.
+    final warmPane =
+        _stage == _Stage.caught || _stage == _Stage.generating;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
           _buildBody(context),
-          // The caught reveal has its own warm background + navigation buttons,
-          // so the dark camera-style close button would look out of place there.
-          if (_stage != _Stage.caught)
+          if (!warmPane)
             SafeArea(
               child: Align(
                 alignment: Alignment.topLeft,
@@ -264,19 +283,14 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   Widget _buildBody(BuildContext context) {
     switch (_stage) {
       case _Stage.initializing:
-      case _Stage.analyzing:
-        return _Centered(
+        return const _Centered(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text(
-                _stage == _Stage.analyzing
-                    ? 'Checking for a cat…'
-                    : 'Warming up the camera…',
-                style: const TextStyle(color: Colors.white),
-              ),
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Warming up the camera…',
+                  style: TextStyle(color: Colors.white)),
             ],
           ),
         );
@@ -298,6 +312,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           onPrimary: () => unawaited(_initCamera()),
         );
       case _Stage.ready:
+      case _Stage.analyzing:
         return _buildPreview(context);
       case _Stage.result:
         return _buildResult(context);
@@ -308,8 +323,103 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
     }
   }
 
-  Widget _buildGenerating(BuildContext context) {
+  // --- Viewfinder ------------------------------------------------------------
+
+  Widget _buildPreview(BuildContext context) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const _Centered(child: CircularProgressIndicator());
+    }
+    final analyzing = _stage == _Stage.analyzing;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: controller.value.previewSize?.height ?? 0,
+            height: controller.value.previewSize?.width ?? 0,
+            child: CameraPreview(controller),
+          ),
+        ),
+        // Cozy rounded viewfinder frame with corner brackets.
+        Positioned.fill(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 56, 14, 120),
+              child: _ViewfinderFrame(
+                color: analyzing ? AppTheme.sage : AppTheme.apricot,
+              ),
+            ),
+          ),
+        ),
+        // Title.
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Meet a cat',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      shadows: const [Shadow(blurRadius: 8, color: Colors.black54)],
+                    ),
+              ),
+            ),
+          ),
+        ),
+        // Top hint pill.
+        const SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: EdgeInsets.only(top: 68),
+              child: _HintPill(
+                text: 'Point at a cat — no flash, no rush',
+              ),
+            ),
+          ),
+        ),
+        // Bottom status + shutter.
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (analyzing) ...[
+                    const _StatusPill(
+                      color: Color(0xFFFFFDF8),
+                      textColor: AppTheme.ink,
+                      dotColor: Color(0xFFD9A03F),
+                      text: 'Looking gently…',
+                      pulse: true,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _ShutterButton(
+                    onPressed: analyzing ? null : () => unawaited(_capture()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- Detection result ------------------------------------------------------
+
+  Widget _buildResult(BuildContext context) {
+    final result = _result;
     final path = _capturedPath;
+    if (result == null) return const SizedBox.shrink();
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -317,28 +427,53 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           Image.file(File(path), fit: BoxFit.cover)
         else
           const ColoredBox(color: Colors.black),
-        Container(color: Colors.black.withValues(alpha: 0.55)),
-        const _Centered(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text(
-                'Bringing your cat to life…',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'This can take a few seconds.',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
+        Container(color: Colors.black.withValues(alpha: 0.4)),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: result.accepted
+                  ? _ResultSheet(
+                      tone: _ResultTone.success,
+                      title: "That's a cat! Hold steady…",
+                      body: 'A lovely find. Ready to bring them to life?',
+                      primaryLabel: 'Keep',
+                      onPrimary: _onKeep,
+                      secondaryLabel: 'Retake',
+                      onSecondary: _retake,
+                    )
+                  : _ResultSheet(
+                      tone: _ResultTone.retry,
+                      title: 'Hmm, no whiskers found — try again?',
+                      body: result.rejectionReason ??
+                          'Point the camera at a real cat and try again.',
+                      primaryLabel: 'Try again',
+                      onPrimary: _retake,
+                    ),
+            ),
           ),
         ),
       ],
     );
   }
+
+  // --- Generating (cozy polaroid) --------------------------------------------
+
+  Widget _buildGenerating(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: const Stack(
+        children: [
+          Positioned.fill(child: _ConfettiDots()),
+          Center(child: _GeneratingCard()),
+        ],
+      ),
+    );
+  }
+
+  // --- Caught reveal ---------------------------------------------------------
 
   Widget _buildCaught(BuildContext context) {
     final cat = _caughtCat;
@@ -364,7 +499,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                           'A new fur-iend!',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineMedium?.copyWith(
-                            color: AppTheme.apricot,
+                            color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -392,7 +527,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                                   BorderRadius.circular(AppTheme.radiusSheet),
                             ),
                           ),
-                          child: Text('See ${cat.name} in CatDex'),
+                          child: Text('Keep ${cat.name}'),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -400,16 +535,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
                         height: 56,
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: _retake,
+                          onPressed: () => unawaited(_discardAndRetake()),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: theme.colorScheme.onSurface,
+                            backgroundColor: theme.colorScheme.surface,
                             side: BorderSide(color: theme.colorScheme.outline),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
                                   AppTheme.radiusSheet),
                             ),
                           ),
-                          child: const Text('Catch another'),
+                          child: const Text('Retake photo'),
                         ),
                       ),
                     ],
@@ -422,97 +558,6 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       ),
     );
   }
-
-  Widget _buildPreview(BuildContext context) {
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
-      return const _Centered(child: CircularProgressIndicator());
-    }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.previewSize?.height ?? 0,
-            height: controller.value.previewSize?.width ?? 0,
-            child: CameraPreview(controller),
-          ),
-        ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      'Point at a real cat and tap to catch',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 6, color: Colors.black)],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _ShutterButton(onPressed: () => unawaited(_capture())),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildResult(BuildContext context) {
-    final result = _result;
-    final path = _capturedPath;
-    if (result == null) return const SizedBox.shrink();
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (path != null)
-          Image.file(File(path), fit: BoxFit.cover)
-        else
-          const ColoredBox(color: Colors.black),
-        Container(color: Colors.black.withValues(alpha: 0.35)),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: result.accepted
-                  ? _ResultCard(
-                      emoji: '😺',
-                      title: 'It\'s a cat!',
-                      body: 'On-device confidence '
-                          '${(result.confidence * 100).round()}%. '
-                          'Bringing them to life comes next.',
-                      primaryLabel: 'Keep',
-                      onPrimary: _onKeep,
-                      secondaryLabel: 'Retake',
-                      onSecondary: _retake,
-                    )
-                  : _ResultCard(
-                      emoji: '🙈',
-                      title: 'No cat spotted',
-                      body: result.rejectionReason ??
-                          'Point the camera at a real cat and try again.',
-                      primaryLabel: 'Try again',
-                      onPrimary: _retake,
-                    ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _Centered extends StatelessWidget {
@@ -523,8 +568,295 @@ class _Centered extends StatelessWidget {
   Widget build(BuildContext context) => Center(child: child);
 }
 
-/// The reveal card: the new companion's sprite in a tinted circle, its name,
-/// trait, story, and a small "met" line — styled from the Cat-ch design.
+/// Rounded viewfinder overlay with four corner brackets (idle apricot, success
+/// sage) — the calm framing from the design's camera turn.
+class _ViewfinderFrame extends StatelessWidget {
+  const _ViewfinderFrame({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned(top: 12, left: 12, child: _Corner(color: color, top: true, left: true)),
+          Positioned(top: 12, right: 12, child: _Corner(color: color, top: true, left: false)),
+          Positioned(bottom: 12, left: 12, child: _Corner(color: color, top: false, left: true)),
+          Positioned(bottom: 12, right: 12, child: _Corner(color: color, top: false, left: false)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Corner extends StatelessWidget {
+  const _Corner({required this.color, required this.top, required this.left});
+
+  final Color color;
+  final bool top;
+  final bool left;
+
+  @override
+  Widget build(BuildContext context) {
+    const w = 3.5;
+    final side = BorderSide(color: color, width: w);
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        border: Border(
+          top: top ? side : BorderSide.none,
+          bottom: !top ? side : BorderSide.none,
+          left: left ? side : BorderSide.none,
+          right: !left ? side : BorderSide.none,
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: top && left ? const Radius.circular(10) : Radius.zero,
+          topRight: top && !left ? const Radius.circular(10) : Radius.zero,
+          bottomLeft: !top && left ? const Radius.circular(10) : Radius.zero,
+          bottomRight: !top && !left ? const Radius.circular(10) : Radius.zero,
+        ),
+      ),
+    );
+  }
+}
+
+/// A dark translucent hint pill shown over the viewfinder.
+class _HintPill extends StatelessWidget {
+  const _HintPill({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFF3E9DF),
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+/// The kind detection status pill (checking / success / retry).
+class _StatusPill extends StatefulWidget {
+  const _StatusPill({
+    required this.color,
+    required this.textColor,
+    required this.dotColor,
+    required this.text,
+    this.pulse = false,
+  });
+
+  final Color color;
+  final Color textColor;
+  final Color dotColor;
+  final String text;
+  final bool pulse;
+
+  @override
+  State<_StatusPill> createState() => _StatusPillState();
+}
+
+class _StatusPillState extends State<_StatusPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pulse) _c.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget dot = Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: widget.dotColor),
+    );
+    if (widget.pulse) {
+      dot = FadeTransition(
+        opacity: Tween(begin: 0.35, end: 1.0).animate(_c),
+        child: dot,
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+      decoration: BoxDecoration(
+        color: widget.color,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          dot,
+          const SizedBox(width: 8),
+          Text(
+            widget.text,
+            style: TextStyle(
+              color: widget.textColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The cozy generating polaroid — a shimmering "developing" card so the wait
+/// reads as the companion coming to life, never a frozen screen.
+class _GeneratingCard extends StatefulWidget {
+  const _GeneratingCard();
+
+  @override
+  State<_GeneratingCard> createState() => _GeneratingCardState();
+}
+
+class _GeneratingCardState extends State<_GeneratingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Transform.rotate(
+      angle: -0.026,
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: theme.colorScheme.outline),
+          boxShadow: AppTheme.cardShadow(theme.brightness),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Shimmer(
+              controller: _c,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _Shimmer(
+              controller: _c,
+              child: Container(
+                width: 140,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _Shimmer(
+              controller: _c,
+              child: Container(
+                width: 190,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Getting to know them…\npainting whiskers, one by one',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Sweeps a soft warm highlight across its (opaque, white) child to fake the
+/// classic content-loading shimmer, using the child's own shape as a mask.
+class _Shimmer extends StatelessWidget {
+  const _Shimmer({required this.controller, required this.child});
+
+  final AnimationController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final base = isLight ? const Color(0xFFF0E4D4) : const Color(0xFF3C332B);
+    final highlight = isLight ? const Color(0xFFFBF3E8) : const Color(0xFF4A4038);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final slide = controller.value * 3 - 1.5;
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [base, highlight, base],
+            stops: const [0.35, 0.5, 0.65],
+            begin: Alignment(slide - 1, 0),
+            end: Alignment(slide + 1, 0),
+          ).createShader(bounds),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+/// The reveal card: the new companion's sprite filling a tinted circle, its
+/// name, trait, backstory, and a small "met" line — from the Cat-ch design.
 class _RevealCard extends StatelessWidget {
   const _RevealCard({required this.cat});
 
@@ -548,12 +880,14 @@ class _RevealCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(color: circleTint, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: _BreathingSprite(url: cat.spriteUrl),
+          ClipOval(
+            child: Container(
+              width: 160,
+              height: 160,
+              color: circleTint,
+              alignment: Alignment.center,
+              child: _BreathingSprite(url: cat.spriteUrl, size: 160),
+            ),
           ),
           const SizedBox(height: 14),
           Text(
@@ -566,17 +900,15 @@ class _RevealCard extends StatelessWidget {
             const SizedBox(height: 10),
             _RevealTraitChip(label: cat.traitLabel!),
           ],
-          if (cat.blurb != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              cat.blurb!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.55,
-              ),
+          const SizedBox(height: 12),
+          Text(
+            cat.story,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.55,
             ),
-          ],
+          ),
           const SizedBox(height: 14),
           Text(
             _revealMetaLine(cat),
@@ -593,11 +925,13 @@ class _RevealCard extends StatelessWidget {
   }
 }
 
-/// The sprite in the reveal circle, with a gentle continuous "breathing" scale.
+/// The sprite in the reveal circle — filling the frame, with a gentle
+/// continuous "breathing" scale.
 class _BreathingSprite extends StatefulWidget {
-  const _BreathingSprite({required this.url});
+  const _BreathingSprite({required this.url, required this.size});
 
   final String? url;
+  final double size;
 
   @override
   State<_BreathingSprite> createState() => _BreathingSpriteState();
@@ -627,23 +961,24 @@ class _BreathingSpriteState extends State<_BreathingSprite>
     final theme = Theme.of(context);
     final url = widget.url;
     final Widget sprite = url == null
-        ? Icon(Icons.pets, size: 88, color: theme.colorScheme.primary)
+        ? Icon(Icons.pets, size: widget.size * 0.5, color: theme.colorScheme.primary)
         : Image.network(
             url,
-            width: 120,
-            height: 120,
-            fit: BoxFit.contain,
+            width: widget.size,
+            height: widget.size,
+            // Fill the whole circular frame with the companion.
+            fit: BoxFit.cover,
             // Crisp nearest-neighbour scaling for pixel-art sprites.
             filterQuality: FilterQuality.none,
             loadingBuilder: (context, child, progress) =>
                 progress == null ? child : const CircularProgressIndicator(),
             errorBuilder: (context, _, __) => Icon(
                 Icons.broken_image_outlined,
-                size: 72,
+                size: widget.size * 0.45,
                 color: theme.colorScheme.onSurfaceVariant),
           );
     return ScaleTransition(
-      scale: Tween(begin: 0.96, end: 1.04).animate(
+      scale: Tween(begin: 0.98, end: 1.05).animate(
         CurvedAnimation(parent: _c, curve: Curves.easeInOut),
       ),
       child: sprite,
@@ -697,10 +1032,8 @@ class _ConfettiDots extends StatelessWidget {
           Positioned(top: 130, right: 48, child: dot(8, AppTheme.sage, 0.5)),
           Positioned(top: 210, right: 34, child: dot(9, AppTheme.apricot, 0.4)),
           Positioned(top: 180, left: 52, child: dot(7, AppTheme.terracotta, 0.4)),
-          Positioned(
-              bottom: 150, left: 40, child: dot(8, AppTheme.sage, 0.4)),
-          Positioned(
-              bottom: 190, right: 44, child: dot(10, AppTheme.apricot, 0.4)),
+          Positioned(bottom: 150, left: 40, child: dot(8, AppTheme.sage, 0.4)),
+          Positioned(bottom: 190, right: 44, child: dot(10, AppTheme.apricot, 0.4)),
         ],
       ),
     );
@@ -738,24 +1071,46 @@ class _CircleButton extends StatelessWidget {
   }
 }
 
+/// The shutter: an apricot disc with a soft inner ring, per the design.
 class _ShutterButton extends StatelessWidget {
   const _ShutterButton({required this.onPressed});
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
-        width: 76,
-        height: 76,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          border: Border.all(color: primary, width: 5),
+      child: Opacity(
+        opacity: onPressed == null ? 0.6 : 1,
+        child: Container(
+          width: 84,
+          height: 84,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.apricot,
+            border: Border.all(color: const Color(0xFFFFFDF8), width: 5),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.terracotta.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.ink.withValues(alpha: 0.25),
+                  width: 3,
+                ),
+              ),
+            ),
+          ),
         ),
-        child: Icon(Icons.pets, color: primary, size: 32),
       ),
     );
   }
@@ -810,9 +1165,13 @@ class _MessagePane extends StatelessWidget {
   }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({
-    required this.emoji,
+enum _ResultTone { success, retry }
+
+/// The post-capture decision card: warm, kind, never error-red — success in
+/// sage, "no cat" in soft peach, both with gentle copy from the design.
+class _ResultSheet extends StatelessWidget {
+  const _ResultSheet({
+    required this.tone,
     required this.title,
     required this.body,
     required this.primaryLabel,
@@ -821,7 +1180,7 @@ class _ResultCard extends StatelessWidget {
     this.onSecondary,
   });
 
-  final String emoji;
+  final _ResultTone tone;
   final String title;
   final String body;
   final String primaryLabel;
@@ -832,40 +1191,90 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final success = tone == _ResultTone.success;
+    final chipColor = success
+        ? theme.colorScheme.tertiaryContainer
+        : theme.colorScheme.primaryContainer;
+    final dotColor = success ? const Color(0xFF6E8C66) : AppTheme.terracotta;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSheet),
+        border: Border.all(color: theme.colorScheme.outline),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: chipColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 28)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(title, style: theme.textTheme.titleLarge),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration:
+                      BoxDecoration(shape: BoxShape.circle, color: dotColor),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(body, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (secondaryLabel != null && onSecondary != null) ...[
-                  TextButton(
+          ),
+          const SizedBox(height: 12),
+          Text(
+            body,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (secondaryLabel != null && onSecondary != null) ...[
+                Expanded(
+                  child: OutlinedButton(
                     onPressed: onSecondary,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      foregroundColor: theme.colorScheme.onSurface,
+                      side: BorderSide(color: theme.colorScheme.outline),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24)),
+                    ),
                     child: Text(secondaryLabel!),
                   ),
-                  const SizedBox(width: 8),
-                ],
-                FilledButton(onPressed: onPrimary, child: Text(primaryLabel)),
+                ),
+                const SizedBox(width: 12),
               ],
-            ),
-          ],
-        ),
+              Expanded(
+                child: FilledButton(
+                  onPressed: onPrimary,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24)),
+                  ),
+                  child: Text(primaryLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
