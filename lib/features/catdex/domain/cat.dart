@@ -12,6 +12,7 @@ class Cat {
     this.discoveredAt,
     this.lat,
     this.lng,
+    this.collarId,
   });
 
   final String id;
@@ -20,6 +21,10 @@ class Cat {
   final String? traitId;
   final Map<String, dynamic> generationMeta;
   final DateTime? discoveredAt;
+
+  /// The equipped cosmetic collar id (from `cats.cosmetic_collar`), or null for
+  /// no collar. Matches the client collar catalogue (features/wardrobe).
+  final String? collarId;
 
   /// Coarse, privacy-fuzzed coordinates of where this cat was met (~1 km).
   /// Null when the catch was made with location off. Used only for the map pin.
@@ -71,6 +76,7 @@ class Cat {
       discoveredAt: discovered is String ? DateTime.tryParse(discovered) : null,
       lat: _toDouble(map['geo_lat']),
       lng: _toDouble(map['geo_lng']),
+      collarId: map['cosmetic_collar'] as String?,
     );
   }
 }

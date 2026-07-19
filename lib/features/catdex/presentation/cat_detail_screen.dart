@@ -13,6 +13,8 @@ import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
 import '../../care/presentation/spa_screen.dart';
+import '../../wardrobe/domain/collar.dart';
+import '../../wardrobe/presentation/collar_sheet.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -76,10 +78,15 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
   /// Which sheet tab is showing: 0 = Story (care), 1 = Details (card back).
   int _tab = 0;
 
+  /// The equipped cosmetic collar id, held locally so equipping updates this
+  /// page immediately (the [Cat] arrives immutable via router `extra`).
+  String? _collarId;
+
   @override
   void initState() {
     super.initState();
     _name = widget.cat.name;
+    _collarId = widget.cat.collarId;
     _bounce = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
@@ -138,6 +145,42 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         ),
       ),
     );
+  }
+
+  /// Opens the wardrobe to pick a cosmetic collar. Collars unlock with this
+  /// cat's bond, so we pass the current bond level in. Persists optimistically
+  /// and refreshes the CatDex grid so the newcomer shows there too.
+  Future<void> _openWardrobe() async {
+    final friendship =
+        ref.read(careControllerProvider(widget.catId)).valueOrNull?.friendship ??
+            0;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => CollarSheet(
+        bondIndex: Bond.levelIndexFor(friendship),
+        equippedId: _collarId,
+      ),
+    );
+    if (result == null) return; // dismissed
+    final newId = result.isEmpty ? null : result;
+    if (newId == _collarId) return;
+
+    final previous = _collarId;
+    setState(() => _collarId = newId); // optimistic
+    try {
+      await ref.read(catsRepositoryProvider).setCollar(widget.catId, newId);
+      if (!mounted) return;
+      ref.invalidate(catsProvider);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _collarId = previous); // roll back
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text("Couldn't save the collar — try again.")),
+        );
+    }
   }
 
   /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
@@ -332,6 +375,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
   Widget _hero(Cat cat, CareState? care) {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
+    final collar = collarById(_collarId);
     final topPad = MediaQuery.of(context).padding.top;
     return SizedBox(
       height: 300 + topPad,
@@ -357,6 +401,22 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  if (collar != null)
+                    IgnorePointer(
+                      child: Container(
+                        width: 240,
+                        height: 240,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              collar.color.withValues(alpha: 0.32),
+                              collar.color.withValues(alpha: 0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   AnimatedBuilder(
                     animation: _bounce,
                     builder: (context, child) {
@@ -432,8 +492,19 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               ),
               const SizedBox(width: 4),
               _PencilButton(onTap: _openRename),
-              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
               if (cat.traitLabel != null) _TraitChip(label: cat.traitLabel!),
+              _CollarChip(
+                collar: collarById(_collarId),
+                onTap: _openWardrobe,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1419,6 +1490,54 @@ List<String> _idleMoods(int seed) {
     s = (s ~/ 3) + 17;
   }
   return picks;
+}
+
+/// The tappable collar chip in the header: shows the equipped collar (tinted to
+/// its colour) or a soft "add a collar" prompt, and opens the wardrobe.
+class _CollarChip extends StatelessWidget {
+  const _CollarChip({required this.collar, required this.onTap});
+
+  final Collar? collar;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = collar;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: c != null
+              ? c.color.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTheme.radiusChip),
+          border: c != null
+              ? null
+              : Border.all(color: theme.colorScheme.outline),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              c != null ? c.emoji : '＋',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              c != null ? c.label : 'Collar',
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 const _months = [

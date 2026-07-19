@@ -15,7 +15,7 @@ class CatsRepository {
     final rows = await client
         .from('cats')
         .select('id, name, sprite_url, trait_id, generation_meta, '
-            'geo_lat, geo_lng, discovered_at')
+            'geo_lat, geo_lng, discovered_at, cosmetic_collar')
         .order('discovered_at', ascending: false);
     return rows
         .map((row) => Cat.fromMap(Map<String, dynamic>.from(row)))
@@ -28,6 +28,16 @@ class CatsRepository {
   Future<void> rename(String catId, String name) async {
     final client = _ref.read(supabaseClientProvider);
     await client.from('cats').update({'name': name}).eq('id', catId);
+  }
+
+  /// Equips (or clears, when null) a cat's cosmetic collar. RLS scopes the
+  /// update to the signed-in user's own rows.
+  Future<void> setCollar(String catId, String? collarId) async {
+    final client = _ref.read(supabaseClientProvider);
+    await client
+        .from('cats')
+        .update({'cosmetic_collar': collarId})
+        .eq('id', catId);
   }
 
   /// Removes a caught cat. Used when the player taps "Retake photo" on the
