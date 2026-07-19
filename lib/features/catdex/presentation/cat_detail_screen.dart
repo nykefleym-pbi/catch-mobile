@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
+import '../../care/presentation/spa_screen.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -124,12 +125,20 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         message: '$_name had fun 🧶',
       );
 
-  Future<void> _groom() => _runCare(
-        floater: '✨',
-        action: () =>
-            ref.read(careControllerProvider(widget.catId).notifier).groom(),
-        message: '$_name looks fresh and happy ✨',
-      );
+  /// Opens the tactile "Spa day" grooming screen. It persists a gentle groom
+  /// (hygiene + a little bond) on the first pampering, and shares this cat's
+  /// care provider, so the meters here update when we return.
+  void _openSpa() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SpaScreen(
+          catId: widget.catId,
+          name: _name,
+          spriteUrl: widget.cat.spriteUrl,
+        ),
+      ),
+    );
+  }
 
   /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
   /// then a snackbar — celebrating a bond level-up when one happens.
@@ -566,7 +575,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton.tonal(
-                onPressed: _groom,
+                onPressed: _openSpa,
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.tertiaryContainer,
                   foregroundColor: theme.colorScheme.onTertiaryContainer,
