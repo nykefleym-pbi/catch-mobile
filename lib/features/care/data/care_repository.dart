@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/analytics/analytics_event.dart';
+import '../../../core/analytics/analytics_service.dart';
 import '../../../data/supabase/supabase_providers.dart';
+import '../../safety/data/age_gate.dart';
 import '../domain/care_state.dart';
 
 /// Reads and writes a cat's [CareState]. RLS scopes every query to the signed-in
@@ -77,19 +80,31 @@ class CareController extends StateNotifier<AsyncValue<CareState>> {
     state = await AsyncValue.guard(() => _repo.fetch(_catId));
   }
 
-  Future<void> feed({int bondGain = 1, int happinessGain = 5}) =>
-      _apply((c) => c.fed(bondGain: bondGain, happinessGain: happinessGain));
+  Future<void> feed({int bondGain = 1, int happinessGain = 5}) => _apply(
+        (c) => c.fed(bondGain: bondGain, happinessGain: happinessGain),
+        AnalyticsEventName.careFed,
+      );
 
-  Future<void> play() => _apply((c) => c.played());
+  Future<void> play() => _apply((c) => c.played(), AnalyticsEventName.carePlayed);
 
-  Future<void> groom() => _apply((c) => c.groomed());
+  Future<void> groom() =>
+      _apply((c) => c.groomed(), AnalyticsEventName.careGroomed);
 
-  Future<void> _apply(CareState Function(CareState) transform) async {
+  Future<void> _apply(
+    CareState Function(CareState) transform,
+    AnalyticsEventName event,
+  ) async {
     final current = state.valueOrNull ?? CareState.initial(_catId);
     final optimistic = transform(current);
     state = AsyncValue.data(optimistic);
     try {
       state = AsyncValue.data(await _repo.persist(optimistic));
+      // Count the successful care action. No cat id, no bond value — just that a
+      // care action of this kind happened; minors send the bare event only.
+      _ref.read(analyticsProvider).log(
+            event,
+            reducedData: _ref.read(ageBracketProvider).isMinor,
+          );
     } catch (_) {
       // Roll back to the real stored state so the bars never lie.
       await load();

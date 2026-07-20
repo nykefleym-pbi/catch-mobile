@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/analytics/analytics_event.dart';
+import '../../../core/analytics/analytics_service.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/generation/generation_client.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
 import '../../map/data/location_service.dart';
+import '../../safety/data/age_gate.dart';
 import '../application/capture_providers.dart';
 import '../domain/cat_detector.dart';
 
@@ -156,6 +159,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         _result = result;
         _stage = _Stage.result;
       });
+      _logEvent(result.accepted
+          ? AnalyticsEventName.captureSucceeded
+          : AnalyticsEventName.captureRejected);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -229,6 +235,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
         _caughtCat = cat;
         _stage = _Stage.caught;
       });
+      _logEvent(AnalyticsEventName.generationSucceeded);
     } on GenerationException catch (error) {
       _showGenerationError(error.message);
     } catch (_) {
@@ -239,10 +246,20 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
   }
 
   void _showGenerationError(String message) {
+    _logEvent(AnalyticsEventName.generationFailed);
     if (!mounted) return;
     setState(() => _stage = _Stage.result);
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Emit an anonymous, aggregate core-loop event. Carries no parameters — just
+  /// that the step happened — and honours reduced-data mode for minors.
+  void _logEvent(AnalyticsEventName event) {
+    ref.read(analyticsProvider).log(
+          event,
+          reducedData: ref.read(ageBracketProvider).isMinor,
+        );
   }
 
   void _goToCatDex() {

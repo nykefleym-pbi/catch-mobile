@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'core/analytics/analytics_event.dart';
+import 'core/analytics/analytics_service.dart';
+import 'core/analytics/error_reporter.dart';
 import 'core/config/env.dart';
 import 'features/onboarding/data/onboarding_repository.dart';
 
@@ -52,6 +55,12 @@ Future<void> main() async {
       appRunner: () => runApp(appRoot()),
     );
   } else {
+    // No Sentry DSN: install the analytics fallback crash hooks so uncaught
+    // errors still have somewhere to go (Noop by default — nothing leaves the
+    // device until a real, reviewed sink is wired).
+    const analytics = NoopAnalytics();
+    installAnalyticsCrashHandlers(analytics);
+    analytics.log(AnalyticsEventName.appOpened);
     runApp(appRoot());
   }
 }
