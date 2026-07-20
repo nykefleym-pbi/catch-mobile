@@ -92,6 +92,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
         'rate_limited' =>
           "That's a lot of requests in a short time — try again a little later.",
         'restricted' => "Adding friends isn't available on your account.",
+        'age_restricted' => "Friends aren't part of the under-13 experience.",
         _ => 'Something went wrong — try again.',
       };
 

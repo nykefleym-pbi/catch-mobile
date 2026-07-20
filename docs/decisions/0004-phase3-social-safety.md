@@ -132,8 +132,18 @@ age gate and a master switch that defaults off.**
 - The two `SECURITY DEFINER` RPCs are intentional and minimal; the Supabase
   advisor's 0029 warning for them is expected and accepted (they are meant to be
   called by signed-in players and guard themselves by `auth.uid()`).
-- Age gates are bypassable; per ADR 0003, data-minimization is the real
-  protection and the gate is a supporting control.
+- **Age band enforcement is now server-authoritative (migration 0013).** The
+  self-declared band was previously enforced only in the client UI, which a
+  modified client could bypass — the under-13 social ban was effectively cosmetic.
+  0013 adds `social_allowed()` / `trade_allowed()` (internal, revoked from every
+  client role) and re-checks the caller's — and counterpart's — band inside every
+  social write RPC (`friend_request_by_code`, `propose_match`, `respond_match`,
+  `propose_trade`, `execute_trade`), and drops the last raw client insert into
+  `friendships` so friend creation must pass the age-checked RPC. The client makes
+  the under-13 declaration a one-way ratchet (`age_gate.dart`) so it can't be
+  re-rolled to unlock social. The band is still a **self-declared** input (no
+  birth-date; data-minimization per ADR 0003) — this is proportionate assurance
+  enforced at the trust boundary, not identity verification.
 - **Every remaining Phase 3 surface now has an honest, gated preview** in the
   social hub — trading, friendly contests (plus a live solo Practice ground),
   visiting friends' cats, shared photo albums, and clubs + cooperative

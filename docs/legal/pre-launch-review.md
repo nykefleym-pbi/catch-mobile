@@ -83,9 +83,14 @@ receives a child's photo — even transiently.
 - ✔ "High privacy by default" for minors: showcase forced private for teens,
   no social for under-13, conservative defaults (ADR 0004).
 - ✔ No detrimental use; no profiling on by default; transparent, kind copy.
-- ~ **Partial — Age assurance:** a self-declared neutral gate is a *supporting*
-  control; AADC expects age-assurance proportionate to risk. Live social raises the
-  risk tier and may require stronger assurance. Counsel + design call.
+- ~ **Partial — Age assurance:** a self-declared neutral gate is the *input*, but
+  the declared band is now **enforced at the trust boundary**, not just in the UI:
+  migration 0013 makes every social write RPC (`friend_request_by_code`,
+  `propose_match` / `respond_match`, `propose_trade` / `execute_trade`) re-check
+  `profiles.age_bracket` in the database, and the client makes the under-13
+  declaration a one-way ratchet (`age_gate.dart`). This is proportionate assurance,
+  not birth-date verification; whether it is *sufficient* for the live-social risk
+  tier remains a counsel + design call. See §7.
 - **GAP** — **Published, child-friendly privacy information** and a **Data
   Protection Impact Assessment** formally recorded.
 
@@ -147,8 +152,15 @@ interim moderator**.
   the `mod_*` RPCs with a 24–48h SLA (satisfies "a human reads reports").
 
 **Still blocking a real `kSocialLive` flip (technical + decision):**
-1. **Age assurance** stronger than pure self-declaration for the social risk tier
-   (the under-13 social ban must be credibly enforced, not cosmetic).
+1. ~~**Age assurance** stronger than pure self-declaration~~ **— substantially
+   addressed (2026-07-22).** The under-13 social ban is no longer cosmetic:
+   migration 0013 enforces the age band **server-side** in every social write RPC
+   (a modified client can no longer reach trading/matching/friend-requests around
+   the ban), and the client declaration is a one-way ratchet that cannot be
+   re-rolled to unlock social (`age_gate.dart`). Residual: this is proportionate
+   assurance over a **self-declared** band, not birth-date verification — counsel
+   still confirms sufficiency for the live-social risk tier (AADC proportionality),
+   and any move to admit under-13 into social would require VPC instead of the ban.
 2. **Client social UIs** for trading/visiting/albums/clubs/matches are not built
    (only backend + gated previews exist).
 3. **DPIA** written up from §1–§4 (mandatory; MVP + social).
@@ -156,5 +168,6 @@ interim moderator**.
 5. Fill remaining `[PLACEHOLDER]` business/jurisdiction facts; finalise the consent
    verification method; confirm sub-processor DPAs + transfer basis.
 
-_Last updated: 2026-07-21. Owner: operator (also interim moderator). Status:
-**legal artifacts adopted v1.0 pre-launch; `kSocialLive` remains false.**_
+_Last updated: 2026-07-22. Owner: operator (also interim moderator). Status:
+**legal artifacts adopted v1.0 pre-launch; under-13 social ban now server-enforced
+(migration 0013); `kSocialLive` remains false.**_

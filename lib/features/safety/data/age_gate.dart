@@ -23,7 +23,21 @@ class AgeGateController extends Notifier<AgeBracket> {
       );
 
   /// Records the chosen band locally and mirrors it to the profile row.
+  ///
+  /// The under-13 declaration is a **one-way ratchet**: once a player has
+  /// declared they are under 13, this will not relax that band to `teen`/`adult`
+  /// on the same install. That removes the trivial "declare under-13, then
+  /// immediately re-declare adult to unlock social" bypass, which is the whole
+  /// point of an age gate. It is a *proportionate* assurance measure (UK-AADC),
+  /// not birth-date verification — a genuine mis-tap is corrected by resetting
+  /// the app, which is deliberate friction on the child-safety bright line.
+  /// The real enforcement is server-side (migration 0013): the social RPCs
+  /// re-check the mirrored band regardless of what the client does. Bands other
+  /// than under-13 stay freely changeable (e.g. a teen turning 18).
   Future<void> set(AgeBracket bracket) async {
+    if (state == AgeBracket.under13 && bracket != AgeBracket.under13) {
+      return; // ratchet: never silently relax a recorded under-13 band.
+    }
     await ref
         .read(sharedPreferencesProvider)
         .setString(_ageBracketKey, bracket.token);
