@@ -8,6 +8,7 @@ import '../../features/catdex/presentation/cat_detail_screen.dart';
 import '../../features/catdex/presentation/catdex_screen.dart';
 import '../../features/catdex/presentation/showcase_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
+import '../../features/academy/presentation/academy_screen.dart';
 import '../../features/auth/presentation/account_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
 import '../../features/onboarding/data/onboarding_repository.dart';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const social = '/social';
   static const seasonal = '/seasonal';
   static const showcase = '/showcase';
+  static const academy = '/academy';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -97,6 +99,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.showcase,
         builder: (context, state) => const ShowcaseScreen(),
+      ),
+      // Care Academy — the educational Guardian-mission subset (learn
+      // responsible care), pushed over the shell from a Profile card.
+      GoRoute(
+        path: AppRoutes.academy,
+        builder: (context, state) => const AcademyScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.

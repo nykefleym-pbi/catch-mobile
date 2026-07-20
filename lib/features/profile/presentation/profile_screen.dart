@@ -8,6 +8,8 @@ import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/placeholder_scaffold.dart';
 import '../../../data/supabase/supabase_providers.dart';
+import '../../academy/data/academy_repository.dart';
+import '../../academy/domain/care_lesson.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../data/guardian_repository.dart';
@@ -75,6 +77,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           const _FriendsCard(),
+          const SizedBox(height: 16),
+          const _AcademyCard(),
           const SizedBox(height: 16),
           const _AccountCard(),
           const SizedBox(height: 16),
@@ -431,6 +435,70 @@ class _FriendsCard extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w700)),
                     Text(
                       'Add friends, show your cats, and see what\'s coming',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry point to the Care Academy (learn responsible care). Shows a gentle
+/// progress hint and the earned "Certified Caretaker" honour once complete.
+class _AcademyCard extends ConsumerWidget {
+  const _AcademyCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final done = academyCompletedCount(ref.watch(academyProgressProvider));
+    final total = kCareLessons.length;
+    final isGraduate = ref.watch(academyGraduateProvider);
+    return Material(
+      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.academy),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(isGraduate ? '🎓' : '📚',
+                    style: const TextStyle(fontSize: 20)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Care Academy',
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      isGraduate
+                          ? 'Certified Caretaker — every lesson complete'
+                          : 'Learn responsible care · $done of $total lessons',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
