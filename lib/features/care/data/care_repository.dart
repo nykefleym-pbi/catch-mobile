@@ -23,9 +23,13 @@ class CareRepository {
         .select(_columns)
         .eq('cat_id', catId)
         .maybeSingle();
-    final friendship = await _fetchFriendship(catId);
-    if (row == null) return CareState.initial(catId, friendship: friendship);
-    return CareState.fromMap(Map<String, dynamic>.from(row), friendship: friendship);
+    final meta = await _fetchCatMeta(catId);
+    if (row == null) {
+      return CareState.initial(catId,
+          friendship: meta.friendship, traitId: meta.traitId);
+    }
+    return CareState.fromMap(Map<String, dynamic>.from(row),
+        friendship: meta.friendship, traitId: meta.traitId);
   }
 
   /// Persists [next]: the needs go to `care_state` (upsert on the `cat_id`
@@ -43,21 +47,26 @@ class CareRepository {
         .from('cats')
         .update({'friendship_level': next.friendship})
         .eq('id', next.catId)
-        .select('friendship_level')
+        .select('friendship_level, trait_id')
         .single();
     final friendship =
         (catRow['friendship_level'] as num?)?.toInt() ?? next.friendship;
-    return CareState.fromMap(Map<String, dynamic>.from(row), friendship: friendship);
+    return CareState.fromMap(Map<String, dynamic>.from(row),
+        friendship: friendship, traitId: catRow['trait_id'] as String?);
   }
 
-  Future<int> _fetchFriendship(String catId) async {
+  Future<({int friendship, String? traitId})> _fetchCatMeta(
+      String catId) async {
     final client = _ref.read(supabaseClientProvider);
     final row = await client
         .from('cats')
-        .select('friendship_level')
+        .select('friendship_level, trait_id')
         .eq('id', catId)
         .maybeSingle();
-    return (row?['friendship_level'] as num?)?.toInt() ?? 0;
+    return (
+      friendship: (row?['friendship_level'] as num?)?.toInt() ?? 0,
+      traitId: row?['trait_id'] as String?,
+    );
   }
 }
 

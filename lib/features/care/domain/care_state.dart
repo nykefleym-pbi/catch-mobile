@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'trait_effects.dart';
+
 /// A friendship tier a cat can reach as the player cares for it. Bond only ever
 /// grows — it's the warm, permanent record of your time together (kindness
 /// earns rank, per the product vision), unlike the gently-decaying daily needs.
@@ -76,9 +78,15 @@ class CareState {
     this.sleep = 100,
     this.play = 100,
     this.friendship = 0,
+    this.traitId,
   });
 
   final String catId;
+
+  /// The cat's personality trait id (from `cats.trait_id`), or null. Drives the
+  /// gentle, welfare-preserving care modulation in [TraitCareEffects] — a trait
+  /// can only ever make a cat's care kinder, never harsher.
+  final String? traitId;
 
   /// Values as last written to the database (0–100). Use the `currentX` getters
   /// for display so the drift-since-[lastUpdated] shows.
@@ -103,25 +111,29 @@ class CareState {
   // Needs drift ~N points/hour, floored at [_floor] so they never bottom out.
   static const int _floor = 30;
 
-  int get currentHunger => _decayed(hunger, 3);
-  int get currentHappiness => _decayed(happiness, 3);
-  int get currentHygiene => _decayed(hygiene, 2);
-  int get currentPlay => _decayed(play, 2);
+  /// The personality modulation for this cat (identity when trait-less).
+  TraitCareEffects get _effects => TraitCareEffects.forTrait(traitId);
+
+  int get currentHunger => _decayed(hunger, 3 * _effects.hungerDecayMult);
+  int get currentHappiness =>
+      _decayed(happiness, 3 * _effects.happinessDecayMult);
+  int get currentHygiene => _decayed(hygiene, 2 * _effects.hygieneDecayMult);
+  int get currentPlay => _decayed(play, 2 * _effects.playDecayMult);
 
   /// Sleep is the kind one: it *recovers* over time (cats nap while you're
   /// away), so returning after a break finds a well-rested friend.
-  int get currentSleep => _regened(sleep, 4);
+  int get currentSleep => _regened(sleep, 4 * _effects.sleepRegenMult);
 
   double _hoursSince() =>
       DateTime.now().difference(lastUpdated).inMinutes / 60.0;
 
-  int _decayed(int base, int perHour) {
+  int _decayed(int base, num perHour) {
     final hours = _hoursSince();
     if (hours <= 0) return base.clamp(0, 100);
     return (base - perHour * hours).round().clamp(_floor, 100);
   }
 
-  int _regened(int base, int perHour) {
+  int _regened(int base, num perHour) {
     final hours = _hoursSince();
     if (hours <= 0) return base.clamp(0, 100);
     return (base + perHour * hours).round().clamp(0, 100);
@@ -155,7 +167,9 @@ class CareState {
   bool get bondIsMax => Bond.isMax(friendship);
 
   /// A brand-new cat starts perfectly content (the row is created at capture).
-  factory CareState.initial(String catId, {int friendship = 0}) => CareState(
+  factory CareState.initial(String catId,
+          {int friendship = 0, String? traitId}) =>
+      CareState(
         catId: catId,
         hunger: 100,
         happiness: 100,
@@ -165,9 +179,11 @@ class CareState {
         mood: 'content',
         lastUpdated: DateTime.now(),
         friendship: friendship,
+        traitId: traitId,
       );
 
-  factory CareState.fromMap(Map<String, dynamic> map, {int friendship = 0}) =>
+  factory CareState.fromMap(Map<String, dynamic> map,
+          {int friendship = 0, String? traitId}) =>
       CareState(
         catId: map['cat_id'] as String,
         hunger: (map['hunger'] as num?)?.toInt() ?? 100,
@@ -182,6 +198,7 @@ class CareState {
             DateTime.tryParse(map['last_updated'] as String? ?? '')?.toUtc() ??
                 DateTime.now().toUtc(),
         friendship: friendship,
+        traitId: traitId,
       );
 
   /// The `care_state` row payload for an upsert (friendship lives on `cats` and
@@ -207,6 +224,7 @@ class CareState {
     String? mood,
     DateTime? lastUpdated,
     int? friendship,
+    String? traitId,
   }) =>
       CareState(
         catId: catId,
@@ -218,6 +236,7 @@ class CareState {
         mood: mood ?? this.mood,
         lastUpdated: lastUpdated ?? this.lastUpdated,
         friendship: friendship ?? this.friendship,
+        traitId: traitId ?? this.traitId,
       );
 
   /// A fresh snapshot at [DateTime.now], carrying every need forward at its
@@ -241,32 +260,37 @@ class CareState {
       mood: mood,
       lastUpdated: DateTime.now(),
       friendship: friendship ?? this.friendship,
+      traitId: traitId,
     );
     return next.copyWith(mood: next.currentMood.toLowerCase());
   }
 
-  /// Feeding fills hunger, lifts spirits, and deepens the bond. The gains
-  /// depend on the treat chosen ([bondGain] / [happinessGain]); a plain feed
-  /// defaults to +1 bond.
+  /// Feeding fills hunger, lifts spirits, and deepens the bond. The gains depend
+  /// on the treat chosen ([bondGain] / [happinessGain]); a plain feed defaults
+  /// to +1 bond. A food-loving personality gets a little extra (never less).
   CareState fed({int bondGain = 1, int happinessGain = 5}) => _snapshot(
         hunger: 100,
-        happiness: (currentHappiness + happinessGain).clamp(0, 100),
-        friendship: friendship + bondGain,
+        happiness:
+            (currentHappiness + happinessGain + _effects.feedHappinessBonus)
+                .clamp(0, 100),
+        friendship: friendship + bondGain + _effects.feedBondBonus,
       );
 
   /// Playing tops up the play + happiness needs, tires the cat out a touch
-  /// (sleep), and bonds a little more than feeding (+2).
+  /// (sleep), and bonds a little more than feeding (+2, more for a playful one).
   CareState played() => _snapshot(
         play: 100,
         happiness: 100,
         sleep: (currentSleep - 10).clamp(_floor, 100),
-        friendship: friendship + 2,
+        friendship: friendship + 2 + _effects.playBondBonus,
       );
 
-  /// Grooming freshens up hygiene, adds a little happiness, and bonds (+1).
+  /// Grooming freshens up hygiene, adds a little happiness, and bonds (+1);
+  /// a shy cat is soothed a bit more by the gentle attention.
   CareState groomed() => _snapshot(
         hygiene: 100,
-        happiness: (currentHappiness + 4).clamp(0, 100),
-        friendship: friendship + 1,
+        happiness: (currentHappiness + 4 + _effects.groomHappinessBonus)
+            .clamp(0, 100),
+        friendship: friendship + 1 + _effects.groomBondBonus,
       );
 }

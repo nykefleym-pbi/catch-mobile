@@ -19,6 +19,7 @@ import '../../wardrobe/domain/collar.dart';
 import '../../wardrobe/presentation/collar_sheet.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
+import 'cat_idle_sprite.dart';
 
 /// A single companion's page, styled from the "Cat-ch Mobile UI" design: a warm
 /// hero with the (reactive) pixel sprite, an overlapping rounded sheet with the
@@ -966,21 +967,22 @@ class _HeroSprite extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (cat.spriteUrl == null) {
-      return Icon(Icons.pets, size: 96, color: theme.colorScheme.primary);
-    }
-    return Image.network(
-      cat.spriteUrl!,
-      width: 180,
-      height: 180,
-      fit: BoxFit.contain,
-      // Crisp nearest-neighbour scaling for pixel-art sprites.
-      filterQuality: FilterQuality.none,
-      loadingBuilder: (context, child, progress) =>
-          progress == null ? child : const CircularProgressIndicator(),
-      errorBuilder: (context, _, __) =>
-          const Icon(Icons.broken_image_outlined, size: 72),
-    );
+    final Widget sprite = cat.spriteUrl == null
+        ? Icon(Icons.pets, size: 96, color: theme.colorScheme.primary)
+        : Image.network(
+            cat.spriteUrl!,
+            width: 180,
+            height: 180,
+            fit: BoxFit.contain,
+            // Crisp nearest-neighbour scaling for pixel-art sprites.
+            filterQuality: FilterQuality.none,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : const CircularProgressIndicator(),
+            errorBuilder: (context, _, __) =>
+                const Icon(Icons.broken_image_outlined, size: 72),
+          );
+    // A gentle, personality-flavoured idle breathe (respects reduce-motion).
+    return CatIdleSprite(traitId: cat.traitId, child: sprite);
   }
 }
 
