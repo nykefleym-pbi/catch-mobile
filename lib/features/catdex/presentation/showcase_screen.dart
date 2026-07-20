@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/cats_repository.dart';
+import '../domain/achievement.dart';
 import '../domain/cat.dart';
 import '../domain/collection_summary.dart';
 
@@ -129,6 +130,8 @@ class _ShowcaseBody extends StatelessWidget {
             ),
           ],
         ],
+        const SizedBox(height: 20),
+        _BadgesSection(badges: AchievementBook.evaluate(summary)),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(16),
@@ -300,6 +303,143 @@ class _MilestoneRow extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A cozy grid of earnable badges. Earned badges glow; the rest show a gentle,
+/// never-punitive "3 / 5" progress — nothing is ever lost or time-pressured.
+class _BadgesSection extends StatelessWidget {
+  const _BadgesSection({required this.badges});
+
+  final List<Achievement> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final earned = badges.where((b) => b.earned).length;
+    // Earned first, then those closest to earning — a hopeful, forward order.
+    final ordered = [...badges]..sort((a, b) {
+        if (a.earned != b.earned) return a.earned ? -1 : 1;
+        return b.progress.compareTo(a.progress);
+      });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Badges',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            const Spacer(),
+            Text(
+              '$earned of ${badges.length} earned',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 12.0;
+            final width = (constraints.maxWidth - spacing) / 2;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final badge in ordered)
+                  SizedBox(width: width, child: _BadgeTile(badge: badge)),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _BadgeTile extends StatelessWidget {
+  const _BadgeTile({required this.badge});
+
+  final Achievement badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final earned = badge.earned;
+    final accent = earned ? AppTheme.apricot : theme.colorScheme.outline;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: earned
+            ? AppTheme.apricot.withValues(alpha: 0.16)
+            : theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: accent),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Opacity(
+                opacity: earned ? 1 : 0.4,
+                child: Text(badge.emoji, style: const TextStyle(fontSize: 24)),
+              ),
+              const Spacer(),
+              Icon(
+                earned ? Icons.check_circle : Icons.lock_outline,
+                size: 18,
+                color: earned
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            badge.title,
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            badge.description,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (earned)
+            Text(
+              'Earned',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: badge.progress,
+                minHeight: 6,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                valueColor:
+                    AlwaysStoppedAnimation(theme.colorScheme.primary),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              badge.progressLabel,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
         ],
       ),
     );
