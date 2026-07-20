@@ -27,7 +27,7 @@ class SeasonalScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: const AppBar(title: Text('This season')),
+      appBar: AppBar(title: const Text('This season')),
       body: SafeArea(
         top: false,
         child: ListView(
