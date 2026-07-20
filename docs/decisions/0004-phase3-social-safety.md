@@ -90,8 +90,16 @@ age gate and a master switch that defaults off.**
 - **Live PvP matchmaking / real-time matches** — needs backend realtime,
   anti-abuse, and fairness proving at scale (04 §PvP). Stat logic is built and
   tested; matches are not.
-- **Live trade execution / escrow** — needs realtime, a confirmation protocol,
-  and fraud handling. Rules + schema are built; execution is not.
+- **Live trade execution** — now BUILT but gated (migration 0010): the atomic,
+  cosmetic-only-re-validating `propose_trade` / `execute_trade` /
+  `set_trade_status` RPCs move inventory ownership all-or-nothing, and the raw
+  `trades` insert/update policies are dropped so nothing can mark a trade
+  completed without performing the swap. Supabase Realtime is enabled on
+  `trades` (RLS still scopes delivery to the two parties). It stays behind
+  `kSocialLive=false` and has no live UI; still owed before flipping it on: a
+  seeded catalogue of *tradable* cosmetic items (today's cosmetics unlock by
+  bond and aren't ownable instances), a full multi-profile staging test of the
+  swap, moderation staffing, and the legal review below.
 - **In-app moderation console / staffing** — an ops function (R9, Phase 5).
 - **Cross-user feed / stranger discovery** — intentionally friends-only.
 - **Any donation / real-money surface** — Phase 4, legally gated (R10).
