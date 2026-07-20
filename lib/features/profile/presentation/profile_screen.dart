@@ -12,6 +12,7 @@ import '../../auth/data/auth_repository.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../data/guardian_repository.dart';
 import '../domain/guardian_profile.dart';
+import 'guardian_journey_screen.dart';
 
 /// Guardian profile — calm and uncluttered, from the "Cat-ch Mobile UI" design
 /// (turn 7): identity, a warm 3-stat summary, a journey note, cloud account,
@@ -64,7 +65,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 16),
           _StatsCard(profile: p),
           const SizedBox(height: 16),
-          _JourneyCard(text: _journeyText(p)),
+          _JourneyCard(
+            text: _journeyText(p),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => GuardianJourneyScreen(profile: p),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           const _AccountCard(),
           const SizedBox(height: 16),
@@ -322,29 +330,58 @@ class _StatCell extends StatelessWidget {
 }
 
 class _JourneyCard extends StatelessWidget {
-  const _JourneyCard({required this.text});
+  const _JourneyCard({required this.text, this.onTap});
 
   final String text;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+    return Material(
+      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: theme.colorScheme.outline),
-      ),
-      child: Text.rich(
-        TextSpan(children: [
-          const TextSpan(
-            text: 'Your journey so far — ',
-            style: TextStyle(fontWeight: FontWeight.w800),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: theme.colorScheme.outline),
           ),
-          TextSpan(text: text),
-        ]),
-        style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(children: [
+                  const TextSpan(
+                    text: 'Your journey so far — ',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  TextSpan(text: text),
+                ]),
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      'See your rank journey',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.tertiary,
+                      ),
+                    ),
+                    Icon(Icons.chevron_right,
+                        size: 18, color: theme.colorScheme.tertiary),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

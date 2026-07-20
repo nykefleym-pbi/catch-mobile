@@ -38,6 +38,12 @@ class GuardianRank {
 
   static String labelFor(int score) => _tiers[_indexFor(score)].name;
 
+  /// The full rank ladder, gentlest → highest, for the journey screen.
+  static List<GuardianTier> get tiers => _tiers;
+
+  /// The current tier index for a score (0-based).
+  static int indexFor(int score) => _indexFor(score);
+
   static bool isMax(int score) => _indexFor(score) >= _tiers.length - 1;
 
   /// Progress (0–1) within the current tier toward the next; full at max tier.
