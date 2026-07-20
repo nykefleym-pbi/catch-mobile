@@ -103,6 +103,16 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
                 style: theme.textTheme.labelMedium
                     ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
+              if (total > 0) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: () => context.push(AppRoutes.showcase),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'My showcase',
+                  icon: Icon(Icons.auto_awesome_outlined,
+                      color: theme.colorScheme.primary),
+                ),
+              ],
             ],
           ),
         ),

@@ -6,6 +6,7 @@ import '../../features/capture/presentation/capture_screen.dart';
 import '../../features/catdex/domain/cat.dart';
 import '../../features/catdex/presentation/cat_detail_screen.dart';
 import '../../features/catdex/presentation/catdex_screen.dart';
+import '../../features/catdex/presentation/showcase_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/auth/presentation/account_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
@@ -29,6 +30,7 @@ class AppRoutes {
   static const account = '/account';
   static const social = '/social';
   static const seasonal = '/seasonal';
+  static const showcase = '/showcase';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -89,6 +91,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.seasonal,
         builder: (context, state) => const SeasonalScreen(),
+      ),
+      // CatDex showcase — a celebratory, read-only board of the player's own
+      // collection, pushed over the shell from the CatDex header.
+      GoRoute(
+        path: AppRoutes.showcase,
+        builder: (context, state) => const ShowcaseScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.

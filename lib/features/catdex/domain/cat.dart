@@ -88,6 +88,23 @@ double? _toDouble(dynamic value) {
   return null;
 }
 
+/// The set of personality trait ids the client knows about — the denominator
+/// for a "personalities collected" showcase stat. Kept in sync with
+/// [_traitLabels]; server-added traits still render (via [Cat.traitLabel]'s
+/// title-case fallback) and simply won't count toward this total until added.
+const List<String> kKnownTraitIds = [
+  'curious',
+  'brave',
+  'lazy',
+  'foodie',
+  'mischievous',
+  'elegant',
+  'playful',
+  'protective',
+  'explorer',
+  'shy',
+];
+
 const Map<String, String> _traitLabels = {
   'curious': 'Curious',
   'brave': 'Brave',
