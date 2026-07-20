@@ -15,6 +15,7 @@ import '../../care/domain/treat.dart';
 import '../../care/presentation/spa_screen.dart';
 import '../../nook/presentation/nook_screen.dart';
 import '../../pvp/domain/cat_stats.dart';
+import '../../pvp/presentation/practice_ground_screen.dart';
 import '../../wardrobe/domain/collar.dart';
 import '../../wardrobe/presentation/collar_sheet.dart';
 import '../data/cats_repository.dart';
@@ -1206,12 +1207,35 @@ class _DetailsBody extends StatelessWidget {
         ),
         if (care != null) ...[
           const SizedBox(height: 22),
-          _PlayStatsCard(
-            stats: CatStats.fromCare(
-              care!,
-              growthStage: _growthStage,
-              traitId: cat.traitId,
-            ),
+          Builder(
+            builder: (context) {
+              final stats = CatStats.fromCare(
+                care!,
+                growthStage: _growthStage,
+                traitId: cat.traitId,
+              );
+              return Column(
+                children: [
+                  _PlayStatsCard(stats: stats),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PracticeGroundScreen(
+                            catName: cat.name,
+                            stats: stats,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.sports_esports_outlined),
+                      label: const Text('Practice ground'),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
         const SizedBox(height: 22),
