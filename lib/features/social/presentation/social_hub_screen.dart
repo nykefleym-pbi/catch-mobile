@@ -15,11 +15,13 @@ import '../data/social_repository.dart';
 import '../domain/friend.dart';
 
 /// The social hub (roadmap p3c) — friends, a cosmetic showcase, and honest
-/// previews of the trading (p3d) and friendly-contest (p3a/b) systems that are
-/// still being built to be safe. Everything here is gated by the age band
+/// previews of every remaining Phase 3 surface: trading (p3d), friendly
+/// contests (p3a/b), visiting friends' cats, shared photo albums, and clubs +
+/// cooperative challenges. Everything here is gated by the age band
 /// (ADR 0004): under-13 sees a gentle explainer, minors get conservative
-/// defaults, and live trading/contests stay behind the master social switch
-/// until the moderation + realtime groundwork exists.
+/// defaults, and the live user-to-user surfaces stay behind the master social
+/// switch until the moderation staffing + realtime groundwork exists. The
+/// previews describe what's coming and the safeguards — never a simulated feed.
 class SocialHubScreen extends ConsumerStatefulWidget {
   const SocialHubScreen({super.key});
 
@@ -195,7 +197,32 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
           title: 'Friendly contests',
           body: 'Zoomie races and playful challenges. No battles, nothing gets '
               'hurt, and skill & care always beat spending — a cat\'s stats come '
-              'only from your kindness, never a purchase.',
+              'only from your kindness, never a purchase. Warm up solo any time '
+              'in a cat\'s Practice ground.',
+        ),
+        const SizedBox(height: 12),
+        const _ComingSoonCard(
+          icon: Icons.home_outlined,
+          title: 'Visiting friends\' cats',
+          body: 'Drop by an accepted friend\'s CatDex to admire their cats and '
+              'leave a kind reaction. Friends-only, no chat, no location ever '
+              'shared — and reporting is one tap away.',
+        ),
+        const SizedBox(height: 12),
+        const _ComingSoonCard(
+          icon: Icons.photo_library_outlined,
+          title: 'Shared photo albums',
+          body: 'Make a cozy album of your companions to share with a friend. '
+              'Only what you choose, only with friends you\'ve accepted, and '
+              'moderated — never a public feed.',
+        ),
+        const SizedBox(height: 12),
+        const _ComingSoonCard(
+          icon: Icons.groups_outlined,
+          title: 'Clubs & cooperative challenges',
+          body: 'Team up in small, kind clubs for gentle shared goals — caring '
+              'together, never competing to spend. Friends-based, moderated, and '
+              'safe for younger guardians.',
         ),
       ],
     );

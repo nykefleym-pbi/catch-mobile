@@ -120,3 +120,10 @@ age gate and a master switch that defaults off.**
   called by signed-in players and guard themselves by `auth.uid()`).
 - Age gates are bypassable; per ADR 0003, data-minimization is the real
   protection and the gate is a supporting control.
+- **Every remaining Phase 3 surface now has an honest, gated preview** in the
+  social hub — trading, friendly contests (plus a live solo Practice ground),
+  visiting friends' cats, shared photo albums, and clubs + cooperative
+  challenges. These describe what's coming and the safeguards (friends-only, no
+  chat, no location, cosmetic-only, moderated, minors protected); none render a
+  simulated feed and none are live. Their live implementations remain owed and
+  gated on the same moderation-staffing + realtime prerequisites above.
