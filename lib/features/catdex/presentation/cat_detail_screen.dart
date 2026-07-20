@@ -14,6 +14,7 @@ import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
 import '../../care/presentation/spa_screen.dart';
 import '../../nook/presentation/nook_screen.dart';
+import '../../pvp/domain/cat_stats.dart';
 import '../../wardrobe/domain/collar.dart';
 import '../../wardrobe/presentation/collar_sheet.dart';
 import '../data/cats_repository.dart';
@@ -530,6 +531,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             _DetailsBody(
               cat: cat,
               friendship: care.valueOrNull?.friendship ?? 0,
+              care: care.valueOrNull,
               onOpenNook: _openNook,
             ),
         ],
@@ -1114,12 +1116,25 @@ class _DetailsBody extends StatelessWidget {
   const _DetailsBody({
     required this.cat,
     required this.friendship,
+    required this.care,
     required this.onOpenNook,
   });
 
   final Cat cat;
   final int friendship;
+  final CareState? care;
   final VoidCallback onOpenNook;
+
+  /// The playful life stage, from time known — same thresholds as the timeline.
+  String get _growthStage {
+    final d = cat.discoveredAt;
+    if (d == null) return 'kitten';
+    final days = DateTime.now().difference(d).inDays;
+    if (days < 30) return 'kitten';
+    if (days < 120) return 'young';
+    if (days < 365) return 'adult';
+    return 'senior';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1187,6 +1202,16 @@ class _DetailsBody extends StatelessWidget {
             ),
           ],
         ),
+        if (care != null) ...[
+          const SizedBox(height: 22),
+          _PlayStatsCard(
+            stats: CatStats.fromCare(
+              care!,
+              growthStage: _growthStage,
+              traitId: cat.traitId,
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
         _GrowthTimeline(discoveredAt: cat.discoveredAt),
         const SizedBox(height: 20),
@@ -1205,6 +1230,108 @@ class _DetailsBody extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A read-only preview of the cat's friendly-contest profile (roadmap p3a/b).
+/// The numbers come only from care, bond, growth, and personality — never a
+/// purchase — so a well-loved cat naturally shines. Contests themselves are not
+/// live yet; the honest note says so.
+class _PlayStatsCard extends StatelessWidget {
+  const _PlayStatsCard({required this.stats});
+
+  final CatStats stats;
+
+  static const _rows = [
+    (CatStat.agility, 'Agility'),
+    (CatStat.speed, 'Speed'),
+    (CatStat.confidence, 'Confidence'),
+    (CatStat.curiosity, 'Curiosity'),
+    (CatStat.energy, 'Energy'),
+    (CatStat.cuteness, 'Cuteness'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.emoji_events_outlined, color: AppTheme.sage),
+              const SizedBox(width: 8),
+              Text('Play stats',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final row in _rows) ...[
+            _StatBar(label: row.$2, value: stats[row.$1]),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'Friendly contests are coming — no battles, nothing gets hurt, and '
+            'never anything you can buy your way through. These grow purely from '
+            'your care.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatBar extends StatelessWidget {
+  const _StatBar({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(label,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: value / 100.0,
+              minHeight: 8,
+              backgroundColor: theme.colorScheme.surface,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.sage),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 24,
+          child: Text('$value',
+              textAlign: TextAlign.right,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)),
         ),
       ],
     );

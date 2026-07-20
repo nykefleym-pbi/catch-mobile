@@ -83,6 +83,12 @@ worth returning to.
   spending**.
 - Community-kindness guardrails and moderation for all social surfaces.
 
+The **safety foundation** for this phase (age gate + reduced-data minor mode,
+report/block substrate, friends-only graph, opt-in showcase, structural
+no-pay-to-win stats, cosmetic-only trading rules) is designed in
+[ADR 0004](../decisions/0004-phase3-social-safety.md); live matchmaking/trading
+stay gated off until moderation + realtime are ready.
+
 **Entry criteria:** stable core + care depth; moderation tooling ready enough for
 user-to-user interaction.
 **Unlocks:** network effects and community identity.

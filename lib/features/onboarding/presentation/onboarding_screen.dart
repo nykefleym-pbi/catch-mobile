@@ -9,13 +9,16 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../map/data/location_service.dart';
+import '../../safety/data/age_gate.dart';
+import '../../safety/domain/age_bracket.dart';
 import '../data/onboarding_repository.dart';
 
 /// The first-launch welcome + consent flow, built from the "Cat-ch Mobile UI"
 /// design (turn 1: onboarding & consent — safety first, zero dark patterns).
 ///
-/// Three cozy pages — Welcome, Location consent, Camera consent — each with a
-/// real decline path. The consent steps make genuine permission requests
+/// Cozy pages — Welcome, a neutral age band, Location consent, Camera consent —
+/// each with a real decline path. The consent steps make genuine permission
+/// requests
 /// (location via geolocator, camera via permission_handler) but always let the
 /// guardian continue; declining just means a sample map / browse-first start.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -26,7 +29,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  static const _pageCount = 3;
+  static const _pageCount = 4;
 
   final _controller = PageController();
   int _page = 0;
@@ -54,6 +57,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         curve: Curves.easeInOut,
       ));
     }
+  }
+
+  Future<void> _selectAge(AgeBracket bracket) async {
+    // Record the coarse band (the social gate reads it) and move on. Everyone —
+    // including under-13 — continues into the cozy single-player game; the band
+    // only governs the Phase 3 social surfaces (ADR 0004).
+    await ref.read(ageBracketProvider.notifier).set(bracket);
+    if (!mounted) return;
+    _advance();
   }
 
   Future<void> _shareLocation() async {
@@ -90,6 +102,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   _WelcomePage(onStart: _advance),
+                  _AgePage(onSelect: _selectAge),
                   _LocationPage(
                     busy: _busy,
                     onShare: _shareLocation,
@@ -246,7 +259,122 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
-// --- Page 2: Location consent ------------------------------------------------
+// --- Page 2: Neutral age band ------------------------------------------------
+
+/// A neutral age gate (ADR 0003 / ADR 0004): no defaults, no nudging, no
+/// "recommended" — just a plain question. We keep only a coarse band (never a
+/// birthday), and it governs the Phase 3 social surfaces so minors get
+/// conservative defaults. The core cozy game is open to everyone.
+class _AgePage extends StatelessWidget {
+  const _AgePage({required this.onSelect});
+
+  final ValueChanged<AgeBracket> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 8),
+            child: Column(
+              children: [
+                const Center(child: _Breathing(child: _CatMark(size: 96))),
+                const SizedBox(height: 22),
+                Text(
+                  'How old are you?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.fredoka(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 25,
+                    height: 1.25,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'We only keep a rough age band — never your birthday. '
+                  'It helps us keep playing-with-others safe.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.55,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                _AgeOption(
+                  label: 'Under 13',
+                  onTap: () => onSelect(AgeBracket.under13),
+                ),
+                const SizedBox(height: 12),
+                _AgeOption(
+                  label: '13 to 17',
+                  onTap: () => onSelect(AgeBracket.teen),
+                ),
+                const SizedBox(height: 12),
+                _AgeOption(
+                  label: '18 or older',
+                  onTap: () => onSelect(AgeBracket.adult),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A plain, equally-weighted age choice. Kept deliberately uniform so no option
+/// is visually favoured over another.
+class _AgeOption extends StatelessWidget {
+  const _AgeOption({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          side: BorderSide(color: theme.colorScheme.outline, width: 1.5),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.fredoka(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right,
+                    color: theme.colorScheme.onSurfaceVariant),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Page 3: Location consent ------------------------------------------------
 
 class _LocationPage extends StatelessWidget {
   const _LocationPage({
@@ -381,7 +509,7 @@ class _CozyZone extends StatelessWidget {
   }
 }
 
-// --- Page 3: Camera consent --------------------------------------------------
+// --- Page 4: Camera consent --------------------------------------------------
 
 class _CameraPage extends StatelessWidget {
   const _CameraPage({

@@ -74,6 +74,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          const _FriendsCard(),
+          const SizedBox(height: 16),
           const _AccountCard(),
           const SizedBox(height: 16),
           const _SettingsCard(),
@@ -379,6 +381,64 @@ class _JourneyCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry point to the social hub (Friends & play). Kept as a Profile card, not a
+/// bottom-nav tab, so the primary nav stays clean; the hub itself gates its
+/// contents by the age band (ADR 0004).
+class _FriendsCard extends StatelessWidget {
+  const _FriendsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.social),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.group_outlined, color: AppTheme.sage),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Friends & play',
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Add friends, show your cats, and see what\'s coming',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
         ),
