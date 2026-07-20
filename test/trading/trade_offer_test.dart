@@ -17,7 +17,7 @@ void main() {
     });
 
     test('fromJson drops malformed items and tolerates missing sides', () {
-      final parsed = TradeOffer.fromJson({
+      final Map<String, dynamic> input = {
         'from': [
           {'item_id': 'ok', 'qty': 1},
           {'item_id': '', 'qty': 1}, // empty id -> dropped
@@ -25,7 +25,8 @@ void main() {
           {'item_id': 'noqty'}, // no qty -> dropped
         ],
         // 'to' missing entirely
-      });
+      };
+      final parsed = TradeOffer.fromJson(input);
       expect(parsed.from.map((i) => i.itemId), ['ok']);
       expect(parsed.to, isEmpty);
     });
