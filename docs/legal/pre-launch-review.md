@@ -120,9 +120,41 @@ receives a child's photo — even transiently.
 
 ## 6. Go / no-go gate
 
-`kSocialLive` stays **false** until items §5.1–§5.7 are resolved and a qualified
-attorney signs off in writing. The engineering safeguards (§4) are necessary but
-**not sufficient**: the remaining gaps are legal artifacts and a consent/assurance
-decision that only counsel can close. This dossier is ready to hand to that review.
+`kSocialLive` stays **false** until the go-live items below are resolved. This
+dossier was handed to a review (see `child-privacy-review` output) which confirmed
+the central correction: **data-minimisation never shielded the MVP** — collecting a
+child's camera image + coarse location already engages COPPA/GDPR-K, so a Privacy
+Policy, notice, lawful-basis register, DPIA, and retention schedule are **public-launch
+blockers for the MVP itself**, not just for social.
 
-_Last updated: 2026-07-20. Owner: maintainer. Status: **draft for legal review**._
+## 7. Status update — 2026-07-21 (operator decisions)
+
+The operator elected to proceed pre-launch treating the self-prepared legal artifacts
+as adopted v1.0 (app is **not yet publicly live**; a professional review remains
+recommended before wide launch — not a lawyer sign-off), and to act as the **sole
+interim moderator**.
+
+**Now in place (this branch):**
+- [Privacy Policy](privacy-policy.md) v1.0 — covers camera + location handling,
+  children's section, parental rights (COPPA §312.4 / GDPR Art. 12–14 shape).
+- [Terms of Service](terms-of-service.md) v1.0 — eligibility/age, kindness rules,
+  cosmetic-only economy, social rules, moderation/termination.
+- [Parental Consent Form](parental-consent-form.md) v1.0 — VPC notice + form for
+  under-13 (verification method still to finalise).
+- [Data Handling](data-handling.md) v1.0 — camera/location data flows, **retention
+  schedule**, **lawful-basis register**, sub-processors.
+- [Moderation Runbook](../ops/moderation-runbook.md) — solo-moderator workflow over
+  the `mod_*` RPCs with a 24–48h SLA (satisfies "a human reads reports").
+
+**Still blocking a real `kSocialLive` flip (technical + decision):**
+1. **Age assurance** stronger than pure self-declaration for the social risk tier
+   (the under-13 social ban must be credibly enforced, not cosmetic).
+2. **Client social UIs** for trading/visiting/albums/clubs/matches are not built
+   (only backend + gated previews exist).
+3. **DPIA** written up from §1–§4 (mandatory; MVP + social).
+4. **Store privacy declarations** + geo-gating the actual launch market.
+5. Fill remaining `[PLACEHOLDER]` business/jurisdiction facts; finalise the consent
+   verification method; confirm sub-processor DPAs + transfer basis.
+
+_Last updated: 2026-07-21. Owner: operator (also interim moderator). Status:
+**legal artifacts adopted v1.0 pre-launch; `kSocialLive` remains false.**_
