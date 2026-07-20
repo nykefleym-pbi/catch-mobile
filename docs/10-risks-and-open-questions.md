@@ -71,7 +71,11 @@ the **decision** that must be made. Review this list at each phase gate in the
   users; launch narrow in home market first.
 - **Residual (owed):** (a) a **one-time legal/privacy review before public launch**,
   and (b) confirming the specific home-market obligations once the launch country is
-  fixed. This doc is privacy-by-design, **not legal advice**.
+  fixed. This doc is privacy-by-design, **not legal advice**. The review-ready
+  input — a data inventory + COPPA/GDPR-K/AADC control map with gaps and
+  escalation items — is drafted in
+  [`docs/legal/pre-launch-review.md`](legal/pre-launch-review.md); a Privacy
+  Policy/ToS and an under-13-social consent decision are the top gaps for counsel.
 - **Owner:** legal + design.
 
 ### R8 — App Store / Play Store policy

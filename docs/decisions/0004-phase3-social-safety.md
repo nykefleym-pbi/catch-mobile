@@ -109,12 +109,26 @@ age gate and a master switch that defaults off.**
 - **Server-side re-validation** of `itemIsTradable` and reward rules is required
   before any live trade/contest ships — client guards are necessary but not
   sufficient.
-- **Moderation staffing + an ops console** remain prerequisites before flipping
+- **Moderation staffing + an ops console UI** remain prerequisites before flipping
   `kSocialLive` on. Migration 0009 builds the *substrate* moderators act through
   (reports queue, `moderation_actions`, `restrictions`, enforcement in the
-  friend/report RPCs); the human review workflow and the console that writes to
-  `moderation_actions` with the service role are still owed. A **pre-launch
-  legal/privacy review** (ADR 0003, R7) also remains.
+  friend/report RPCs); **migration 0011 adds the operable service-role action layer**
+  a console drives — `mod_queue`, `mod_claim_report`, `mod_resolve_report`,
+  `mod_issue_restriction`, `mod_lift_restriction` (all revoked from every client
+  role, granted only to `service_role`). Still owed: the console **UI** and the
+  **humans** (an ops function, not code).
+- **Realtime substrate for friendly PvP** is built (migration 0012): a `matches`
+  table (RLS both-parties-read) with guarded `propose_match` / `respond_match` /
+  `cancel_match` / `set_match_result` RPCs, Realtime enabled for live sync.
+  Deliberately **friends-only — no stranger matchmaking queue** — so the realtime
+  surface can't introduce a minor to an unknown adult. Records a result only, no
+  power reward (no pay-to-win). No live client UI; stays behind `kSocialLive`.
+- A **pre-launch legal/privacy review** (ADR 0003, R7) remains. The
+  engineering-side input for it — a data-inventory + COPPA/GDPR-K/AADC control map
+  with gaps flagged — is drafted in
+  [`docs/legal/pre-launch-review.md`](../legal/pre-launch-review.md); it needs a
+  qualified attorney's sign-off (and a Privacy Policy/ToS + a consent decision)
+  before the switch flips.
 - The two `SECURITY DEFINER` RPCs are intentional and minimal; the Supabase
   advisor's 0029 warning for them is expected and accepted (they are meant to be
   called by signed-in players and guard themselves by `auth.uid()`).
