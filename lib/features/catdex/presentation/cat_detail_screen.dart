@@ -13,6 +13,7 @@ import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
 import '../../care/presentation/spa_screen.dart';
+import '../../nook/presentation/nook_screen.dart';
 import '../../wardrobe/domain/collar.dart';
 import '../../wardrobe/presentation/collar_sheet.dart';
 import '../data/cats_repository.dart';
@@ -139,6 +140,19 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SpaScreen(
+          catId: widget.catId,
+          name: _name,
+          spriteUrl: widget.cat.spriteUrl,
+        ),
+      ),
+    );
+  }
+
+  /// Opens this cat's decorated nook (home decoration).
+  void _openNook() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NookScreen(
           catId: widget.catId,
           name: _name,
           spriteUrl: widget.cat.spriteUrl,
@@ -516,6 +530,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             _DetailsBody(
               cat: cat,
               friendship: care.valueOrNull?.friendship ?? 0,
+              onOpenNook: _openNook,
             ),
         ],
       ),
@@ -1096,10 +1111,15 @@ class _SegTabs extends StatelessWidget {
 /// is a playful, clearly-labelled estimate derived deterministically from the
 /// cat's id, so the same cat always reads the same — never presented as fact.
 class _DetailsBody extends StatelessWidget {
-  const _DetailsBody({required this.cat, required this.friendship});
+  const _DetailsBody({
+    required this.cat,
+    required this.friendship,
+    required this.onOpenNook,
+  });
 
   final Cat cat;
   final int friendship;
+  final VoidCallback onOpenNook;
 
   @override
   Widget build(BuildContext context) {
@@ -1169,6 +1189,14 @@ class _DetailsBody extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         _GrowthTimeline(discoveredAt: cat.discoveredAt),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonal(
+            onPressed: onOpenNook,
+            child: const Text('🏡  Visit the nook'),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 14),
           child: Text(
