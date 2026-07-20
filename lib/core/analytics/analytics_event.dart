@@ -69,14 +69,15 @@ class AnalyticsSanitizer {
     final out = <String, Object>{};
     params.forEach((key, value) {
       if (_keyIsBlocked(key)) return;
-      if (value is bool || value is int || value is double) {
-        out[key] = value;
-      } else if (value is String) {
+      if (value == null) return; // also promotes `value` to non-null below
+      if (value is String) {
         out[key] = value.length > _maxStringLength
             ? value.substring(0, _maxStringLength)
             : value;
+      } else if (value is bool || value is int || value is double) {
+        out[key] = value;
       }
-      // Anything else (Map/List/null/custom object) is intentionally dropped.
+      // Anything else (Map/List/custom object) is intentionally dropped.
     });
     return out;
   }
