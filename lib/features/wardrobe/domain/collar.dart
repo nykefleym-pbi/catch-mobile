@@ -88,6 +88,41 @@ const List<Collar> kCollars = [
     unlockIndex: 6,
     unlockLabel: 'Kindred Spirit',
   ),
+  // Seasonal collars (docs/roadmap p3e) — featured for a season, but permanent
+  // additions to the catalogue like every other collar. No countdowns, no
+  // expiry: earned by bond and yours to keep, always.
+  Collar(
+    id: 'blossom',
+    label: 'Blossom',
+    emoji: '🌷',
+    color: Color(0xFFEFA0B8),
+    unlockIndex: 1,
+    unlockLabel: 'Familiar',
+  ),
+  Collar(
+    id: 'sunflower',
+    label: 'Sunflower',
+    emoji: '🌻',
+    color: Color(0xFFE7C077),
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+  ),
+  Collar(
+    id: 'maple',
+    label: 'Maple leaf',
+    emoji: '🍁',
+    color: Color(0xFFC96448),
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+  ),
+  Collar(
+    id: 'snowflake',
+    label: 'Snowflake',
+    emoji: '❄️',
+    color: Color(0xFFA9C7D8),
+    unlockIndex: 3,
+    unlockLabel: 'Pal',
+  ),
 ];
 
 /// Looks up a collar by id, or null (no collar / unknown id).

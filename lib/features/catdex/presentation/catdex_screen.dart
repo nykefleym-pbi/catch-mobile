@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../seasonal/presentation/seasonal_banner.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -105,7 +106,12 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: SeasonalBanner(),
+        ),
+        const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: _SearchField(onChanged: (v) => setState(() => _query = v)),

@@ -82,6 +82,37 @@ const List<DecorItem> kDecor = [
     unlockIndex: 5,
     unlockLabel: 'Best Friend',
   ),
+  // Seasonal decor (docs/roadmap p3e) — featured for a season, but permanent
+  // additions to the catalogue like every other piece. No countdowns, no
+  // expiry: earned by bond and yours to keep, always.
+  DecorItem(
+    id: 'tulips',
+    label: 'Tulips',
+    emoji: '🌷',
+    unlockIndex: 1,
+    unlockLabel: 'Familiar',
+  ),
+  DecorItem(
+    id: 'sun-lamp',
+    label: 'Sun lamp',
+    emoji: '☀️',
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+  ),
+  DecorItem(
+    id: 'pumpkin',
+    label: 'Pumpkin',
+    emoji: '🎃',
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+  ),
+  DecorItem(
+    id: 'snow-globe',
+    label: 'Snow globe',
+    emoji: '🔮',
+    unlockIndex: 3,
+    unlockLabel: 'Pal',
+  ),
 ];
 
 DecorItem? decorById(String id) {

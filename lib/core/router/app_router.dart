@@ -12,6 +12,7 @@ import '../../features/map/presentation/map_screen.dart';
 import '../../features/onboarding/data/onboarding_repository.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/seasonal/presentation/seasonal_screen.dart';
 import '../../features/social/presentation/social_hub_screen.dart';
 
 /// Central route table. Kept flat and simple; the only redirect is the
@@ -27,6 +28,7 @@ class AppRoutes {
   static const onboarding = '/onboarding';
   static const account = '/account';
   static const social = '/social';
+  static const seasonal = '/seasonal';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -81,6 +83,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.social,
         builder: (context, state) => const SocialHubScreen(),
+      ),
+      // "This season" — cozy seasonal theme + featured cosmetics, pushed over
+      // the shell from the CatDex banner.
+      GoRoute(
+        path: AppRoutes.seasonal,
+        builder: (context, state) => const SeasonalScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.
