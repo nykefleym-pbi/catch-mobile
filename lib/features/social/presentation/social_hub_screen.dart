@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../safety/data/age_gate.dart';
+import '../../safety/data/trust_safety_repository.dart';
 import '../../safety/domain/age_bracket.dart';
+import '../../safety/domain/moderation.dart';
 import '../../safety/domain/report_reason.dart';
 import '../../safety/presentation/report_block_sheet.dart';
 import '../data/social_repository.dart';
@@ -85,6 +87,9 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
         'self' => "That's your own code 🙂",
         'blocked' => "Can't connect right now.",
         'exists' => "You're already connected (or a request is pending).",
+        'rate_limited' =>
+          "That's a lot of requests in a short time — try again a little later.",
+        'restricted' => "Adding friends isn't available on your account.",
         _ => 'Something went wrong — try again.',
       };
 
@@ -144,14 +149,21 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
     if (!_loaded) {
       return const Center(child: CircularProgressIndicator());
     }
+    final restriction = ref.watch(myRestrictionProvider).valueOrNull;
+    final limited = restriction?.blocksSocialActions ?? false;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
+        if (restriction != null) ...[
+          _RestrictionBanner(restriction: restriction),
+          const SizedBox(height: 12),
+        ],
         _FriendCodeCard(code: _myCode),
         const SizedBox(height: 12),
         _AddFriendCard(
           controller: _codeField,
           busy: _busy,
+          enabled: !limited,
           onAdd: _addFriend,
         ),
         const SizedBox(height: 20),
@@ -162,9 +174,10 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
         const _SectionLabel('YOUR SHOWCASE'),
         const SizedBox(height: 8),
         _ShowcaseCard(
-          enabled: caps.canShowcaseToFriends,
+          enabled: caps.canShowcaseToFriends && !limited,
           value: _showcase,
-          onChanged: caps.canShowcaseToFriends ? _setShowcase : null,
+          onChanged:
+              (caps.canShowcaseToFriends && !limited) ? _setShowcase : null,
         ),
         const SizedBox(height: 20),
         const _SectionLabel('COMING WHEN WE CAN HOST IT SAFELY'),
@@ -249,6 +262,40 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// A gentle, non-punitive banner shown when the player's own account carries an
+/// active moderation restriction (read from their own `restrictions` row). The
+/// server enforces the limit regardless; this just explains it kindly.
+class _RestrictionBanner extends StatelessWidget {
+  const _RestrictionBanner({required this.restriction});
+
+  final Restriction restriction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.terracotta.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.terracotta.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppTheme.terracotta),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              restriction.bannerMessage,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FriendCodeCard extends StatelessWidget {
   const _FriendCodeCard({required this.code});
   final String? code;
@@ -300,10 +347,12 @@ class _AddFriendCard extends StatelessWidget {
     required this.controller,
     required this.busy,
     required this.onAdd,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
   final bool busy;
+  final bool enabled;
   final VoidCallback onAdd;
 
   @override
@@ -314,7 +363,7 @@ class _AddFriendCard extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
-              enabled: !busy,
+              enabled: enabled && !busy,
               textCapitalization: TextCapitalization.characters,
               maxLength: 6,
               decoration: const InputDecoration(
@@ -326,7 +375,7 @@ class _AddFriendCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           FilledButton(
-            onPressed: busy ? null : onAdd,
+            onPressed: (busy || !enabled) ? null : onAdd,
             child: busy
                 ? const SizedBox(
                     width: 18,

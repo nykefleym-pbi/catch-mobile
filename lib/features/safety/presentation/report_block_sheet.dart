@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/trust_safety_repository.dart';
+import '../domain/moderation.dart';
 import '../domain/report_reason.dart';
 
 /// The single report/block surface every shared feature routes through. Built
@@ -109,8 +110,9 @@ class _ReportBlockSheetState extends ConsumerState<_ReportBlockSheet> {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    var outcome = ReportOutcome.unknown;
     try {
-      await ref.read(trustSafetyRepositoryProvider).report(
+      outcome = await ref.read(trustSafetyRepositoryProvider).report(
             targetType: widget.targetType,
             targetId: widget.targetId,
             reason: _reason,
@@ -121,11 +123,7 @@ class _ReportBlockSheetState extends ConsumerState<_ReportBlockSheet> {
     }
     if (!mounted) return;
     navigator.pop();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Thanks — our team will take a look.'),
-      ),
-    );
+    messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
   }
 
   Future<void> _block() async {

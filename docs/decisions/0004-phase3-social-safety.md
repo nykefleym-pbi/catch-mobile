@@ -73,6 +73,18 @@ age gate and a master switch that defaults off.**
    render an honest "coming when we can host it safely" explainer (with the
    safeguards) rather than a simulated experience.
 
+9. **Moderation + anti-abuse floor (migration 0009).** The report system runs
+   through a single hardened `submit_report` RPC — rate-limited (10/hour),
+   de-duplicated per open target, and closed to restricted accounts — so the
+   report channel itself cannot be weaponised. A service-role-only
+   `moderation_actions` log and a `restrictions` table (mute/suspend/ban, which a
+   player may read only for their own account) give moderation something to
+   *enact*, and `is_restricted` (internal-only) makes it bite: a suspended or
+   banned account is refused new friend requests and reports server-side.
+   Outbound friend requests are rate-limited (20/hour). None of this flips
+   `kSocialLive`; it is the moderation floor the roadmap names as the Phase 3
+   entry criterion, now standing under the live surfaces before they open.
+
 ## What this groundwork does NOT build (and why)
 
 - **Live PvP matchmaking / real-time matches** — needs backend realtime,
@@ -89,8 +101,12 @@ age gate and a master switch that defaults off.**
 - **Server-side re-validation** of `itemIsTradable` and reward rules is required
   before any live trade/contest ships — client guards are necessary but not
   sufficient.
-- **Moderation staffing + tooling** and a **pre-launch legal/privacy review**
-  (ADR 0003, R7) remain prerequisites before flipping `kSocialLive` on.
+- **Moderation staffing + an ops console** remain prerequisites before flipping
+  `kSocialLive` on. Migration 0009 builds the *substrate* moderators act through
+  (reports queue, `moderation_actions`, `restrictions`, enforcement in the
+  friend/report RPCs); the human review workflow and the console that writes to
+  `moderation_actions` with the service role are still owed. A **pre-launch
+  legal/privacy review** (ADR 0003, R7) also remains.
 - The two `SECURITY DEFINER` RPCs are intentional and minimal; the Supabase
   advisor's 0029 warning for them is expected and accepted (they are meant to be
   called by signed-in players and guard themselves by `auth.uid()`).
