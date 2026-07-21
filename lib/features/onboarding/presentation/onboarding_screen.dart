@@ -263,8 +263,8 @@ class _AgePageState extends ConsumerState<_AgePage> {
   bool _saving = false;
 
   static const _monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
   ];
 
   Future<void> _confirm() async {
@@ -353,21 +353,62 @@ class _AgePageState extends ConsumerState<_AgePage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (var m = 1; m <= 12; m++)
-                      _MonthChip(
-                        label: _monthNames[m - 1],
-                        selected: _month == m,
-                        // Tapping the chosen month again clears it (optional).
-                        onTap: () => setState(
-                          () => _month = _month == m ? null : m,
+                DropdownButtonFormField<int?>(
+                  value: _month,
+                  isExpanded: true,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: theme.colorScheme.surface,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      borderSide:
+                          BorderSide(color: theme.colorScheme.outline, width: 1.5),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      borderSide:
+                          BorderSide(color: theme.colorScheme.outline, width: 1.5),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      borderSide:
+                          BorderSide(color: theme.colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  hint: Text(
+                    'Choose a month (optional)',
+                    style: GoogleFonts.fredoka(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  style: GoogleFonts.fredoka(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        'Prefer not to say',
+                        style: GoogleFonts.fredoka(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                    ),
+                    for (var m = 1; m <= 12; m++)
+                      DropdownMenuItem<int?>(
+                        value: m,
+                        child: Text(_monthNames[m - 1]),
+                      ),
                   ],
+                  onChanged: (value) => setState(() => _month = value),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -377,9 +418,9 @@ class _AgePageState extends ConsumerState<_AgePage> {
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: _PillButton(
-            label: 'Continue',
+            label: 'Start Playing',
             busy: _saving,
-            // Neutral gate: no age is pre-selected, so Continue stays disabled
+            // Neutral gate: no age is pre-selected, so the button stays disabled
             // until the player answers the age question themselves.
             onPressed: _bracket == null || _saving ? null : _confirm,
           ),
@@ -448,51 +489,6 @@ class _AgeOption extends StatelessWidget {
   }
 }
 
-/// A small, tappable month pill for the optional birthday-month picker.
-class _MonthChip extends StatelessWidget {
-  const _MonthChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: selected ? theme.colorScheme.primary : theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
-          width: 1.5,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Text(
-            label,
-            style: GoogleFonts.fredoka(
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
-              color: selected
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // --- Page 3: Location consent ------------------------------------------------
 
 class _LocationPage extends StatelessWidget {
@@ -541,7 +537,7 @@ class _LocationPage extends StatelessWidget {
       ],
       primaryLabel: 'Share my general area',
       onPrimary: onShare,
-      secondaryLabel: 'Not now — show a sample map',
+      secondaryLabel: 'Not now',
       onSecondary: onSkip,
       busy: busy,
     );
@@ -673,45 +669,76 @@ class _CameraPage extends StatelessWidget {
       extra: const _GuardianNote(),
       primaryLabel: 'Enable camera',
       onPrimary: onEnable,
-      secondaryLabel: 'Maybe later — browse first',
+      secondaryLabel: 'Not now',
       onSecondary: onSkip,
       busy: busy,
     );
   }
 }
 
+/// The camera-consent hero, matching the Cat-ch UI design: a cream camera body
+/// with a terracotta outline and a top-left shutter bump on a soft panel, with
+/// the paw mark at the centre in place of a lens.
 class _CameraHero extends StatelessWidget {
   const _CameraHero();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      width: 210,
-      height: 150,
+    final isLight = theme.brightness == Brightness.light;
+    final panelColor = isLight
+        ? const Color(0xFFEDE3D6)
+        : theme.colorScheme.surfaceContainerHigh;
+    return Container(
+      width: 220,
+      height: 160,
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(28),
+      ),
       child: Center(
         child: _Breathing(
           minScale: 0.96,
-          child: Container(
-            width: 120,
-            height: 92,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppTheme.terracotta, width: 2.5),
-            ),
-            child: Center(
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.terracotta, width: 2.5),
+          child: SizedBox(
+            width: 132,
+            height: 104,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // The shutter / viewfinder bump peeking above the top-left.
+                Positioned(
+                  top: 0,
+                  left: 20,
+                  child: Container(
+                    width: 34,
+                    height: 16,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.terracotta,
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                  ),
                 ),
-                child: const Center(
-                  child: Icon(Icons.pets, size: 20, color: AppTheme.apricot),
+                // The camera body, with the paw mark centred as the "lens".
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 12,
+                  bottom: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: AppTheme.terracotta, width: 2.5),
+                    ),
+                    child: const Center(
+                      child:
+                          Icon(Icons.pets, size: 34, color: AppTheme.apricot),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),

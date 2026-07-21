@@ -33,7 +33,7 @@ jobs:
       # The generated manifest has no runtime permissions. The capture flow needs
       # the camera; the Explore map needs location. Declare both (camera hardware
       # is marked optional so the app still installs on camera-less devices).
-      - name: Add camera + location permissions to manifest
+      - name: Set app name + add camera/location permissions to manifest
         run: |
           manifest=android/app/src/main/AndroidManifest.xml
           python3 - "$manifest" <<'PY'
@@ -41,6 +41,11 @@ jobs:
           path = sys.argv[1]
           with open(path) as f:
               src = f.read()
+          # Display name shown under the launcher icon / in App info. The generated
+          # manifest uses the Dart package name (catch_mobile); use the brand name.
+          assert 'android:label="catch_mobile"' in src, "label anchor not found"
+          src = src.replace(
+              'android:label="catch_mobile"', 'android:label="Cat-ch Mobile"', 1)
           perms = (
               '    <uses-permission android:name="android.permission.CAMERA" />\n'
               '    <uses-feature android:name="android.hardware.camera" '
