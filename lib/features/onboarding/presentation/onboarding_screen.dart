@@ -354,7 +354,7 @@ class _AgePageState extends ConsumerState<_AgePage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int?>(
-                  value: _month,
+                  initialValue: _month,
                   isExpanded: true,
                   borderRadius: BorderRadius.circular(AppTheme.radiusCard),
                   decoration: InputDecoration(
