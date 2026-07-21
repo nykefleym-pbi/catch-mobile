@@ -122,7 +122,12 @@ age gate and a master switch that defaults off.**
   `cancel_match` / `set_match_result` RPCs, Realtime enabled for live sync.
   Deliberately **friends-only — no stranger matchmaking queue** — so the realtime
   surface can't introduce a minor to an unknown adult. Records a result only, no
-  power reward (no pay-to-win). No live client UI; stays behind `kSocialLive`.
+  power reward (no pay-to-win). The **client** now exists too — a `MatchRepository`
+  (challenge / respond / cancel / record-result) and a `MatchesScreen` reached
+  from the social hub — but every method short-circuits with `restricted` and the
+  screen shows an honest gated state while `kSocialLive` is off; the age gate
+  (teen + adult, enforced server-side by migration 0013) means a child can never
+  enter even when the switch flips.
 - A **pre-launch legal/privacy review** (ADR 0003, R7) remains. The
   engineering-side input for it — a data-inventory + COPPA/GDPR-K/AADC control map
   with gaps flagged — is drafted in

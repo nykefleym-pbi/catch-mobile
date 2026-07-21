@@ -11,6 +11,7 @@ import '../../safety/domain/age_bracket.dart';
 import '../../safety/domain/moderation.dart';
 import '../../safety/domain/report_reason.dart';
 import '../../safety/presentation/report_block_sheet.dart';
+import '../../pvp/presentation/matches_screen.dart';
 import '../data/social_repository.dart';
 import '../domain/friend.dart';
 
@@ -193,13 +194,19 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
               'real money. Only between friends, with reporting built in.',
         ),
         const SizedBox(height: 12),
-        const _ComingSoonCard(
-          icon: Icons.emoji_events_outlined,
-          title: 'Friendly contests',
-          body: 'Zoomie races and playful challenges. No battles, nothing gets '
-              'hurt, and skill & care always beat spending — a cat\'s stats come '
-              'only from your kindness, never a purchase. Warm up solo any time '
-              'in a cat\'s Practice ground.',
+        InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const MatchesScreen()),
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: const _ComingSoonCard(
+            icon: Icons.emoji_events_outlined,
+            title: 'Friendly contests',
+            body: 'Zoomie races and playful challenges. No battles, nothing '
+                'gets hurt, and skill & care always beat spending — a cat\'s '
+                'stats come only from your kindness, never a purchase. Warm up '
+                'solo any time in a cat\'s Practice ground.',
+          ),
         ),
         const SizedBox(height: 12),
         const _ComingSoonCard(
