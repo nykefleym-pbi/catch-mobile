@@ -128,6 +128,16 @@ age gate and a master switch that defaults off.**
   screen shows an honest gated state while `kSocialLive` is off; the age gate
   (teen + adult, enforced server-side by migration 0013) means a child can never
   enter even when the switch flips.
+- **Visiting a friend's showcase** is built too (migration 0014): a guarded
+  `list_friend_showcase` RPC that, as the definer, checks the accepted friendship,
+  block state, the viewer's age, and the owner's adult-only showcase flag, then
+  returns only safe cosmetic fields — **never `location_label`**, so visiting can
+  never reveal where a real cat was met. This also fixes a latent bug: the 0008
+  cross-user showcase RLS policy never functioned (its `profiles` subquery ran
+  under the viewer's self-access RLS, so a friend's profile row was invisible and
+  the policy could never match); it is dropped and `cats` is back to strictly
+  owner-only, with visiting reads flowing through the RPC. A `VisitScreen` reached
+  from each accepted friend's row renders it, still gated by `kSocialLive`.
 - A **pre-launch legal/privacy review** (ADR 0003, R7) remains. The
   engineering-side input for it — a data-inventory + COPPA/GDPR-K/AADC control map
   with gaps flagged — is drafted in

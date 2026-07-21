@@ -14,6 +14,7 @@ import '../../safety/presentation/report_block_sheet.dart';
 import '../../pvp/presentation/matches_screen.dart';
 import '../data/social_repository.dart';
 import '../domain/friend.dart';
+import 'visit_screen.dart';
 
 /// The social hub (roadmap p3c) — friends, a cosmetic showcase, and honest
 /// previews of every remaining Phase 3 surface: trading (p3d), friendly
@@ -123,6 +124,14 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
         ref.invalidate(friendsProvider);
       },
     ));
+  }
+
+  void _visitFriend(Friend f) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VisitScreen(friendId: f.id, friendName: f.label),
+      ),
+    );
   }
 
   @override
@@ -269,6 +278,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
                 onAccept: () => _respond(f, accept: true),
                 onDecline: () => _respond(f, accept: false),
                 onReport: () => _reportFriend(f),
+                onVisit: f.isAccepted ? () => _visitFriend(f) : null,
               ),
           ],
         );
@@ -431,12 +441,14 @@ class _FriendRow extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     required this.onReport,
+    this.onVisit,
   });
 
   final Friend friend;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
   final VoidCallback onReport;
+  final VoidCallback? onVisit;
 
   @override
   Widget build(BuildContext context) {
@@ -481,12 +493,19 @@ class _FriendRow extends StatelessWidget {
               tooltip: 'Decline',
               onPressed: onDecline,
             ),
-          ] else
+          ] else ...[
+            if (friend.isAccepted && onVisit != null)
+              IconButton(
+                icon: const Icon(Icons.visibility_outlined),
+                tooltip: 'Visit',
+                onPressed: onVisit,
+              ),
             IconButton(
               icon: const Icon(Icons.more_horiz),
               tooltip: 'Report or block',
               onPressed: onReport,
             ),
+          ],
         ],
       ),
     );

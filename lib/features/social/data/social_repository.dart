@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/supabase/supabase_providers.dart';
 import '../domain/friend.dart';
+import '../domain/safe_play.dart';
+import '../domain/showcase_cat.dart';
 
 /// The friend graph + showcase settings for the social hub (Phase 3 groundwork).
 ///
@@ -104,6 +106,23 @@ class SocialRepository {
         );
   }
 
+  // --- Visiting (read a friend's showcase) ----------------------------------
+
+  /// The cats a friend has chosen to showcase, via the guarded
+  /// `list_friend_showcase` RPC (migration 0014) — the server checks the accepted
+  /// friendship, block state, the viewer's age, and the owner's adult-only
+  /// showcase flag, and returns only safe, non-location fields. Gated by
+  /// [kSocialLive]: empty (no network) while live social is off.
+  Future<List<ShowcaseCat>> friendShowcase(String friendId) async {
+    if (!kSocialLive) return const [];
+    final rows = await _ref
+        .read(supabaseClientProvider)
+        .rpc('list_friend_showcase', params: {'p_friend': friendId});
+    return (rows as List)
+        .map((r) => ShowcaseCat.fromRow(Map<String, dynamic>.from(r as Map)))
+        .toList();
+  }
+
   static String _generateCode() {
     // Unambiguous alphabet (no 0/O/1/I) — easy to read aloud and type.
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -120,4 +139,11 @@ final socialRepositoryProvider =
 /// on each open; invalidate after a mutation.
 final friendsProvider = FutureProvider.autoDispose<List<Friend>>(
   (ref) => ref.read(socialRepositoryProvider).friends(),
+);
+
+/// A friend's showcased cats, keyed by friend id. Empty while [kSocialLive] is
+/// off (the repository short-circuits without a network call).
+final friendShowcaseProvider =
+    FutureProvider.autoDispose.family<List<ShowcaseCat>, String>(
+  (ref, friendId) => ref.read(socialRepositoryProvider).friendShowcase(friendId),
 );
