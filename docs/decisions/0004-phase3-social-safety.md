@@ -229,3 +229,27 @@ Two changes make this a considered flip rather than a naked toggle:
   under-13 cannot reach any social RPC regardless of these flags — re-verified by a
   staging `execute_trade` round-trip (non-adult proposer rejected `age_restricted`;
   adult two-sided swap succeeded; all rolled back).
+
+### Follow-up (2026-07-21) — product/code gaps closed for the full live experience
+
+- **Realtime (client):** `matchesStream()` / `tradesStream()` +
+  `liveMatchesProvider` / `liveTradesProvider` consume the realtime publication
+  (0010/0012) so invites/proposals/results update without a manual refresh.
+- **In-app notifications:** `socialInboxCount()` + `socialInboxCountProvider`
+  drive a pending-activity badge on the Friends & play entry (incoming trade
+  proposals + match invites). No push infra; nothing surfaced to minors.
+- **Moderation console (in-app):** migration 0018 adds a `moderators` registry
+  and `authenticated`-callable `mod_*_v2` wrappers that self-verify
+  `is_moderator(auth.uid())` before delegating to the service-role-only 0011
+  action layer — so a moderator can work the review queue in-app with **no
+  service key in the client**. `ModConsoleScreen` + a moderator-only Profile
+  entry. Staffing the console remains an operational (human) task.
+- **Anti-abuse depth:** migration 0019 adds an outstanding-pending cap (≤25) and
+  a rolling 24h cap (≤60) to `friend_request_by_code`, on top of the existing
+  20/hour velocity + dedup + block + age gates.
+- **Launch market:** the APK builds with `LAUNCH_MARKETS=PH`, so the geo-gate
+  limits live social to the Philippines (unknown region fails closed).
+
+Still genuinely owed (not client code): a **staffed** moderator, and a true
+two-client UI end-to-end pass on a live backend (the swap + match lifecycle are
+verified server-side and at the domain seam respectively).
