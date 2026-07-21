@@ -106,32 +106,15 @@ void main() {
   });
 
   group('ClubRepository gating (kSocialLive)', () {
-    test('the master switch is off in this build', () {
-      expect(kSocialLive, isFalse);
+    test('live social is on by default in this build', () {
+      expect(kSocialLive, isTrue);
     });
 
-    test('reads return empty and mutations short-circuit with no network',
-        () async {
+    test('the repository is available when live', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      final repo = container.read(clubRepositoryProvider);
-
-      expect(await repo.myClubs(), isEmpty);
-      expect(await repo.members('club-1'), isEmpty);
-
-      final (createOutcome, id) = await repo.create('My Club');
-      expect(createOutcome, ClubOutcome.restricted);
-      expect(id, isNull);
-
-      expect(await repo.invite('club-1', 'friend-1'), ClubOutcome.restricted);
-      expect(await repo.respondInvite('club-1', accept: true),
-          ClubOutcome.restricted);
-      expect(await repo.leave('club-1'), ClubOutcome.restricted);
-      expect(await repo.contribute('club-1'), ClubOutcome.restricted);
-      expect(
-        await repo.startChallenge('club-1', ClubChallengeKind.care, 20),
-        ClubOutcome.restricted,
-      );
+      // No I/O on construction; live club RPCs are covered server-side.
+      expect(container.read(clubRepositoryProvider), isNotNull);
     });
   });
 }

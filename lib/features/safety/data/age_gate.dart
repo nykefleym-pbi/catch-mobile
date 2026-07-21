@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/supabase/supabase_providers.dart';
 import '../../onboarding/data/onboarding_repository.dart';
-import '../../social/domain/safe_play.dart';
+import '../../social/data/social_live_provider.dart';
 import '../domain/age_bracket.dart';
 
 /// Persisted key for the self-declared age band. Versioned so a future gate
@@ -65,8 +65,11 @@ final ageBracketProvider =
 
 /// What the current player is allowed to do on social surfaces — the single
 /// source of truth every Phase 3 screen gates on. Combines the age band with the
-/// master [kSocialLive] switch for live trading/contests.
+/// effective live-social signal ([socialLiveProvider]): the master `kSocialLive`
+/// switch AND the launch-market geo-gate, so live trading/contests stay off in
+/// any market that has not cleared its store/privacy review.
 final socialCapabilitiesProvider = Provider<SocialCapabilities>((ref) {
   final bracket = ref.watch(ageBracketProvider);
-  return SocialCapabilities.forBracket(bracket, socialLive: kSocialLive);
+  final socialLive = ref.watch(socialLiveProvider);
+  return SocialCapabilities.forBracket(bracket, socialLive: socialLive);
 });

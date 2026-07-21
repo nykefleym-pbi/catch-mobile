@@ -207,3 +207,25 @@ age gate and a master switch that defaults off.**
   chat, no location, cosmetic-only, moderated, minors protected); none render a
   simulated feed and none are live. Their live implementations remain owed and
   gated on the same moderation-staffing + realtime prerequisites above.
+
+## Status update (2026-07-21) — `kSocialLive` default flipped ON + geo-gate added
+
+For this **private, not-yet-publicly-live side-project build**, the operator flipped
+`kSocialLive` on by default under a documented risk-acceptance (see
+[pre-launch §8](../legal/pre-launch-review.md) and
+[OPEN-ITEMS.md](../legal/OPEN-ITEMS.md)) — the public-launch go-live items (counsel
+sign-off, DPAs, store declarations, moderation staffing) are **not** thereby cleared.
+
+Two changes make this a considered flip rather than a naked toggle:
+- `kSocialLive` is now `bool.fromEnvironment('SOCIAL_LIVE', defaultValue: true)` — a
+  compile-time flag that can be forced back off (`--dart-define=SOCIAL_LIVE=false`),
+  keeping the gating branches out of `dead_code` while defaulting live.
+- A **launch-market geo-gate** now sits in series with the master switch:
+  `SocialLaunchGate.isLive(socialLive, launchMarkets, region)` +
+  `deviceRegionProvider` + `socialLiveProvider`, fed by the `LAUNCH_MARKETS`
+  dart-define. Empty allowlist = unrestricted (current default); a set allowlist
+  limits live social to cleared markets and fails closed on an unknown region. The
+  server-enforced age band (migration 0013) is unchanged and still authoritative:
+  under-13 cannot reach any social RPC regardless of these flags — re-verified by a
+  staging `execute_trade` round-trip (non-adult proposer rejected `age_restricted`;
+  adult two-sided swap succeeded; all rolled back).

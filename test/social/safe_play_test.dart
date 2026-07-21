@@ -113,9 +113,11 @@ void main() {
       );
     });
 
-    test('the shipped default keeps live trading off', () {
-      // kSocialLive is the master switch; groundwork ships with it off.
-      expect(kSocialLive, isFalse);
+    test('this build ships with live social on by default', () {
+      // kSocialLive is the master switch; this side-project build defaults it on
+      // (`--dart-define=SOCIAL_LIVE=false` forces it back off). The real safety
+      // locks (server age band, launch-market geo-gate) sit in series with it.
+      expect(kSocialLive, isTrue);
     });
   });
 }

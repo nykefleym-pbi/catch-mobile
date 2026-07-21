@@ -23,8 +23,25 @@ class Env {
   /// Optional — crash reporting is disabled when empty (e.g. local dev).
   static const String sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
+  /// Comma-separated ISO 3166-1 alpha-2 country codes where **live** social is
+  /// permitted — i.e. the markets whose store privacy declarations / legal
+  /// review have cleared (pre-launch dossier §5.4, §7.4). Empty means *no geo
+  /// restriction* (dev / single-region default); set it to gate live social to
+  /// specific launch markets without touching code. Passed at build time, e.g.
+  /// `--dart-define=LAUNCH_MARKETS=US,CA`.
+  static const String _launchMarketsRaw =
+      String.fromEnvironment('LAUNCH_MARKETS');
+
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 
   static bool get hasSentry => sentryDsn.isNotEmpty;
+
+  /// The parsed launch-market allowlist (upper-cased, blanks dropped). An empty
+  /// set means live social is not geo-restricted.
+  static Set<String> get launchMarkets => _launchMarketsRaw
+      .split(',')
+      .map((code) => code.trim().toUpperCase())
+      .where((code) => code.isNotEmpty)
+      .toSet();
 }

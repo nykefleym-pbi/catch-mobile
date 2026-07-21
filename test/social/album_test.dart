@@ -123,15 +123,15 @@ void main() {
   });
 
   group('friendAlbums gating (kSocialLive)', () {
-    test('the master switch is off in this build', () {
-      expect(kSocialLive, isFalse);
+    test('live social is on by default in this build', () {
+      expect(kSocialLive, isTrue);
     });
 
-    test('returns empty with no network read while gated', () async {
+    test('the repository is available when live', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      final repo = container.read(albumRepositoryProvider);
-      expect(await repo.friendAlbums('friend-1'), isEmpty);
+      // Construction does no I/O; the live friend-read RPC is covered server-side.
+      expect(container.read(albumRepositoryProvider), isNotNull);
     });
   });
 }

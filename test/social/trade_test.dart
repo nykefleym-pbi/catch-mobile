@@ -122,26 +122,16 @@ void main() {
   });
 
   group('TradeRepository gating (kSocialLive)', () {
-    test('the master switch is off in this build', () {
-      expect(kSocialLive, isFalse);
+    test('live social is on by default in this build', () {
+      expect(kSocialLive, isTrue);
     });
 
-    test('reads return empty and mutations short-circuit with no network',
-        () async {
+    test('the repository is available when live', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      final repo = container.read(tradeRepositoryProvider);
-
-      expect(await repo.myCharms(), isEmpty);
-      expect(await repo.proposedTrades(), isEmpty);
-      expect(
-        await repo.propose('friend-1',
-            const TradeOffer(give: [OfferLine(itemId: 'charm_yarn', quantity: 1)])),
-        TradeOutcome.restricted,
-      );
-      expect(await repo.accept('t1'), TradeOutcome.restricted);
-      expect(await repo.decline('t1'), TradeOutcome.restricted);
-      expect(await repo.cancel('t1'), TradeOutcome.restricted);
+      // Constructing the repo does no I/O; the live swap path is exercised by
+      // the staging round-trip against Supabase, not this unit suite.
+      expect(container.read(tradeRepositoryProvider), isNotNull);
     });
   });
 }

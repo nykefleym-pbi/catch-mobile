@@ -177,6 +177,30 @@ interim moderator**.
 5. Fill remaining `[PLACEHOLDER]` business/jurisdiction facts; finalise the consent
    verification method; confirm sub-processor DPAs + transfer basis.
 
-_Last updated: 2026-07-22. Owner: operator (also interim moderator). Status:
-**legal artifacts adopted v1.0 pre-launch; under-13 social ban now server-enforced
-(migration 0013); `kSocialLive` remains false.**_
+## 8. Status update — 2026-07-21 (`kSocialLive` flipped ON for this build)
+
+The operator — treating Cat-ch as a **personal, not-yet-publicly-live side
+project** — elected to **flip `kSocialLive` on by default** (`--dart-define=SOCIAL_LIVE=false`
+forces it back off), explicitly accepting the residual legal/ops risk catalogued in
+[OPEN-ITEMS.md](OPEN-ITEMS.md). This is a documented risk-acceptance for a private
+build, **not** a determination that the go-live gate in §6 is cleared. Should this
+project ever move toward a real public launch, the §5/§7 counsel + contract items
+must be resolved first.
+
+The safety controls that sit **in series with** the flag remain fully in force and
+are unaffected by it:
+- **Server-enforced age band** (migration 0013): under-13 can never reach
+  trading/matching/friend-requests regardless of client build — verified during a
+  staging swap test (a non-adult proposer was rejected with `age_restricted`).
+- **Launch-market geo-gate** (new): `SocialLaunchGate` + the `LAUNCH_MARKETS`
+  dart-define keep live social off outside cleared markets; unknown region fails
+  closed. Empty allowlist = unrestricted (the current single-region default).
+- **Cosmetic-only + atomic swap** (migration 0010): re-validated server-side; a
+  2-profile `execute_trade` round-trip was verified end-to-end (rolled back, no
+  production mutation).
+
+_Last updated: 2026-07-21. Owner: operator (also interim moderator). Status:
+**legal artifacts adopted v1.0 pre-launch; under-13 social ban server-enforced
+(migration 0013); geo-gate scaffolded; `kSocialLive` flipped ON by default for
+this private side-project build under documented risk-acceptance — public-launch
+go-live items in §5/§7 remain open.**_

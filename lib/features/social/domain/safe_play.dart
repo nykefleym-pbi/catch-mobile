@@ -1,11 +1,20 @@
 import '../../safety/domain/age_bracket.dart';
 
 /// The master switch for **live** user-to-user features (cosmetic trading and
-/// friendly contests). It defaults to `false` and stays off until the backing
-/// realtime + anti-abuse + moderation groundwork exists (ADR 0004, R9). While
-/// off, those surfaces render an honest "coming when we can host it safely"
-/// explainer rather than a simulated experience.
-const bool kSocialLive = false;
+/// friendly contests).
+///
+/// It is now **on by default** for this build (a personal, not-yet-publicly-live
+/// side project — the operator accepted the residual legal/ops risk documented in
+/// `docs/legal/OPEN-ITEMS.md`). It stays a compile-time flag via
+/// `bool.fromEnvironment` so a build can force it back off with
+/// `--dart-define=SOCIAL_LIVE=false` — and, being environment-sourced rather than
+/// a literal `const`, the off-path gating branches never become `dead_code`.
+///
+/// Turning this on does **not** remove the real safety locks that sit in series
+/// with it: the server-enforced age band (migration 0013 — under-13 can never
+/// reach social however the client is built), and the launch-market geo-gate
+/// (`SocialLaunchGate` / `LAUNCH_MARKETS`, off outside cleared markets).
+const bool kSocialLive = bool.fromEnvironment('SOCIAL_LIVE', defaultValue: true);
 
 /// Safe-play rules, translated one-for-one from
 /// `docs/08-ethics-privacy-safety.md` into pure, testable guards. Every Phase 3
