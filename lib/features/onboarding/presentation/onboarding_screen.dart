@@ -207,7 +207,7 @@ class _WelcomePage extends StatelessWidget {
           const _Breathing(child: _LogoMark(width: 280)),
           const SizedBox(height: 26),
           Text(
-            'Every cat has a story.\nEvery player can make a difference.',
+            'Adventure begins with a meow',
             textAlign: TextAlign.center,
             style: GoogleFonts.fredoka(
               fontWeight: FontWeight.w500,
@@ -218,8 +218,8 @@ class _WelcomePage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'A cozy stroll. A surprise fur-iend around the corner. '
-            'A collection that helps real cats.',
+            'Meet neighborhood cats, build lasting friendships, and fill '
+            'your CatDex one paw at a time.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
