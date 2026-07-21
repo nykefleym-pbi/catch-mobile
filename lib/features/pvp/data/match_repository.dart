@@ -97,6 +97,19 @@ class MatchRepository {
     return _parse(rows);
   }
 
+  /// A live stream of every match the caller is a party to (RLS scopes the rows
+  /// to their own), so invite/accept/result transitions surface without a manual
+  /// refresh — the realtime half of the friendly-contest backend (migration
+  /// 0012 puts `matches` on the realtime publication). Emits a single empty list
+  /// while [kSocialLive] is off, so nothing subscribes to the network then.
+  Stream<List<Match>> matchesStream() {
+    if (!kSocialLive) return Stream.value(const []);
+    return _ref
+        .read(supabaseClientProvider)
+        .from('matches')
+        .stream(primaryKey: ['id']).map(_parse);
+  }
+
   List<Match> _parse(dynamic rows) => (rows as List)
       .map((r) => Match.fromMap(Map<String, dynamic>.from(r as Map)))
       .toList();
@@ -112,4 +125,10 @@ final incomingMatchesProvider = FutureProvider.autoDispose<List<Match>>(
 );
 final outgoingMatchesProvider = FutureProvider.autoDispose<List<Match>>(
   (ref) => ref.read(matchRepositoryProvider).outgoing(),
+);
+
+/// A live view of all of the caller's matches, updated in realtime. Empty while
+/// [kSocialLive] is off.
+final liveMatchesProvider = StreamProvider.autoDispose<List<Match>>(
+  (ref) => ref.watch(matchRepositoryProvider).matchesStream(),
 );

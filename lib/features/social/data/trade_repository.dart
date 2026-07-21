@@ -76,6 +76,20 @@ class TradeRepository {
     return TradeOutcome.parse(result);
   }
 
+  /// A live stream of the caller's trades (RLS-scoped to trades they are a party
+  /// to), so an incoming proposal appears without a manual refresh — the
+  /// realtime half of the trade backend (migration 0010 puts `trades` on the
+  /// realtime publication). Emits a single empty list while [kSocialLive] is off.
+  Stream<List<Trade>> tradesStream() {
+    if (!kSocialLive) return Stream.value(const []);
+    return _ref
+        .read(supabaseClientProvider)
+        .from('trades')
+        .stream(primaryKey: ['id']).map((rows) => rows
+            .map((r) => Trade.fromRow(Map<String, dynamic>.from(r)))
+            .toList());
+  }
+
   String? get uid => _uid;
 }
 
@@ -90,4 +104,10 @@ final myCharmsProvider = FutureProvider.autoDispose<List<OwnedCosmetic>>(
 /// Proposed trades the player is a party to. Empty while [kSocialLive] is off.
 final proposedTradesProvider = FutureProvider.autoDispose<List<Trade>>(
   (ref) => ref.read(tradeRepositoryProvider).proposedTrades(),
+);
+
+/// A live view of all of the caller's trades, updated in realtime. Empty while
+/// [kSocialLive] is off.
+final liveTradesProvider = StreamProvider.autoDispose<List<Trade>>(
+  (ref) => ref.watch(tradeRepositoryProvider).tradesStream(),
 );

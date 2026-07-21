@@ -12,6 +12,7 @@ import '../../academy/data/academy_repository.dart';
 import '../../academy/domain/care_lesson.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../catdex/data/cats_repository.dart';
+import '../../social/data/social_inbox.dart';
 import '../data/guardian_repository.dart';
 import '../domain/guardian_profile.dart';
 import 'guardian_journey_screen.dart';
@@ -396,12 +397,13 @@ class _JourneyCard extends StatelessWidget {
 /// Entry point to the social hub (Friends & play). Kept as a Profile card, not a
 /// bottom-nav tab, so the primary nav stays clean; the hub itself gates its
 /// contents by the age band (ADR 0004).
-class _FriendsCard extends StatelessWidget {
+class _FriendsCard extends ConsumerWidget {
   const _FriendsCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final inbox = ref.watch(socialInboxCountProvider);
     return Material(
       color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
       borderRadius: BorderRadius.circular(AppTheme.radiusCard),
@@ -442,6 +444,23 @@ class _FriendsCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (inbox > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$inbox',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              if (inbox > 0) const SizedBox(width: 8),
               Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
