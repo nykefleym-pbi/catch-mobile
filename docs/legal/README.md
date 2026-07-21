@@ -12,6 +12,7 @@ documents, **not legal advice**.
 | [Terms of Service](terms-of-service.md) | Eligibility/age, kindness rules, cosmetic-only economy, social rules, moderation/termination |
 | [Parental Consent Form](parental-consent-form.md) | Verifiable parental consent (VPC) notice + form for children under 13 |
 | [Data Handling](data-handling.md) | Camera/location data flows, retention schedule, lawful-basis register, sub-processors |
+| [DPIA](dpia.md) | Art. 35 data protection impact assessment: processing description, necessity, risk table + controls, residual risk, review triggers |
 | [Pre-launch Review Dossier](pre-launch-review.md) | Data inventory + COPPA/GDPR-K/AADC control map, gaps, go/no-go gate, status |
 | [Moderation Runbook](../ops/moderation-runbook.md) | Solo-moderator workflow over the `mod_*` RPCs with an SLA |
 

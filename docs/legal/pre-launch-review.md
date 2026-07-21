@@ -163,7 +163,10 @@ interim moderator**.
    and any move to admit under-13 into social would require VPC instead of the ban.
 2. **Client social UIs** for trading/visiting/albums/clubs/matches are not built
    (only backend + gated previews exist).
-3. **DPIA** written up from §1–§4 (mandatory; MVP + social).
+3. ~~**DPIA** written up from §1–§4~~ **— drafted (2026-07-22):**
+   [dpia.md](dpia.md) (self-prepared v1.0). Residual open items it carries:
+   sub-processor DPAs + transfer basis (R8), and age-assurance sufficiency for the
+   live-social tier. Must be revisited before `kSocialLive` flips.
 4. **Store privacy declarations** + geo-gating the actual launch market.
 5. Fill remaining `[PLACEHOLDER]` business/jurisdiction facts; finalise the consent
    verification method; confirm sub-processor DPAs + transfer basis.
