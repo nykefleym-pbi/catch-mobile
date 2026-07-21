@@ -28,9 +28,11 @@ any live social surface opens.
 age gate and a master switch that defaults off.**
 
 1. **Neutral age gate → reduced-data minor mode (the keystone).** Onboarding
-   captures a coarse, self-declared age band (never a birthday) into
-   `profiles.age_bracket`. `SocialCapabilities.forBracket` derives what a player
-   may do:
+   captures a coarse, self-declared age band (never a full birth date) into
+   `profiles.age_bracket`. Onboarding also asks for an *optional* birthday
+   **month** (month only, stored on-device, freely skippable) purely so the app
+   can celebrate a player's special month — it is not a birth date and is never
+   required. `SocialCapabilities.forBracket` derives what a player may do:
    - **under-13 / unknown** → no social at all (reduced-data mode).
    - **13–17** → friends allowed, showcase **forced private**, no trading.
    - **18+** → may opt into every surface, still gated by the master switch.

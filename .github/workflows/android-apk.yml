@@ -61,6 +61,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Generate the native launcher icon + launch splash from assets/branding/.
+      # These write into the just-created android/ folder (mipmaps, drawables,
+      # styles) and must run after `flutter create` + `flutter pub get`.
+      - name: Generate launcher icon + splash
+        run: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
       - name: Build debug APK
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

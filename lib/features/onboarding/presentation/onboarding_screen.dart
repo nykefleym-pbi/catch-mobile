@@ -59,15 +59,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  Future<void> _selectAge(AgeBracket bracket) async {
-    // Record the coarse band (the social gate reads it) and move on. Everyone —
-    // including under-13 — continues into the cozy single-player game; the band
-    // only governs the Phase 3 social surfaces (ADR 0004).
-    await ref.read(ageBracketProvider.notifier).set(bracket);
-    if (!mounted) return;
-    _advance();
-  }
-
   Future<void> _shareLocation() async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -102,7 +93,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
                   _WelcomePage(onStart: _advance),
-                  _AgePage(onSelect: _selectAge),
+                  _AgePage(onDone: _advance),
                   _LocationPage(
                     busy: _busy,
                     onShare: _shareLocation,
@@ -213,7 +204,7 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(),
-          const _Breathing(child: _CatMark(size: 150)),
+          const _Breathing(child: _LogoMark(width: 280)),
           const SizedBox(height: 26),
           Text(
             'Every cat has a story.\nEvery player can make a difference.',
@@ -244,31 +235,50 @@ class _WelcomePage extends StatelessWidget {
             onPressed: () => context.push(AppRoutes.account),
             filled: false,
           ),
-          const SizedBox(height: 12),
-          Text(
-            "Under 13? We'll ask a grown-up to help set things up.",
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-// --- Page 2: Neutral age band ------------------------------------------------
+// --- Page 2: Age band + birthday month ---------------------------------------
 
-/// A neutral age gate (ADR 0003 / ADR 0004): no defaults, no nudging, no
-/// "recommended" — just a plain question. We keep only a coarse band (never a
-/// birthday), and it governs the Phase 3 social surfaces so minors get
-/// conservative defaults. The core cozy game is open to everyone.
-class _AgePage extends StatelessWidget {
-  const _AgePage({required this.onSelect});
+/// A neutral age question with no defaults, no nudging, no "recommended" — it
+/// just asks, so younger players get gentler settings when playing with others.
+/// We also ask for a birthday *month* (only the month, and only if they want to
+/// share it) so we can celebrate their special month later.
+class _AgePage extends ConsumerStatefulWidget {
+  const _AgePage({required this.onDone});
 
-  final ValueChanged<AgeBracket> onSelect;
+  /// Called once the player has confirmed their choice; advances the flow.
+  final VoidCallback onDone;
+
+  @override
+  ConsumerState<_AgePage> createState() => _AgePageState();
+}
+
+class _AgePageState extends ConsumerState<_AgePage> {
+  AgeBracket? _bracket;
+  int? _month; // 1–12, or null if they'd rather not say.
+  bool _saving = false;
+
+  static const _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  Future<void> _confirm() async {
+    final bracket = _bracket;
+    if (bracket == null || _saving) return;
+    setState(() => _saving = true);
+    await ref.read(ageBracketProvider.notifier).set(bracket);
+    if (_month != null) {
+      await ref.read(birthMonthProvider.notifier).set(_month!);
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    widget.onDone();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -279,9 +289,10 @@ class _AgePage extends StatelessWidget {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(28, 24, 28, 8),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Center(child: _Breathing(child: _CatMark(size: 96))),
-                const SizedBox(height: 22),
+                const Center(child: _Breathing(child: _CatMark(size: 88))),
+                const SizedBox(height: 20),
                 Text(
                   'How old are you?',
                   textAlign: TextAlign.center,
@@ -294,8 +305,7 @@ class _AgePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'We only keep a rough age band — never your birthday. '
-                  'It helps us keep playing-with-others safe.',
+                  'This helps us keep playing with others safe and fun.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
@@ -306,20 +316,72 @@ class _AgePage extends StatelessWidget {
                 const SizedBox(height: 22),
                 _AgeOption(
                   label: 'Under 13',
-                  onTap: () => onSelect(AgeBracket.under13),
+                  selected: _bracket == AgeBracket.under13,
+                  onTap: () => setState(() => _bracket = AgeBracket.under13),
                 ),
                 const SizedBox(height: 12),
                 _AgeOption(
                   label: '13 to 17',
-                  onTap: () => onSelect(AgeBracket.teen),
+                  selected: _bracket == AgeBracket.teen,
+                  onTap: () => setState(() => _bracket = AgeBracket.teen),
                 ),
                 const SizedBox(height: 12),
                 _AgeOption(
                   label: '18 or older',
-                  onTap: () => onSelect(AgeBracket.adult),
+                  selected: _bracket == AgeBracket.adult,
+                  onTap: () => setState(() => _bracket = AgeBracket.adult),
                 ),
+                const SizedBox(height: 28),
+                Text(
+                  "When's your birthday?",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.fredoka(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 19,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "Pick your month and we'll celebrate it with you. "
+                  'You can skip this if you like.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (var m = 1; m <= 12; m++)
+                      _MonthChip(
+                        label: _monthNames[m - 1],
+                        selected: _month == m,
+                        // Tapping the chosen month again clears it (optional).
+                        onTap: () => setState(
+                          () => _month = _month == m ? null : m,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
               ],
             ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: _PillButton(
+            label: 'Continue',
+            busy: _saving,
+            // Neutral gate: no age is pre-selected, so Continue stays disabled
+            // until the player answers the age question themselves.
+            onPressed: _bracket == null || _saving ? null : _confirm,
           ),
         ),
       ],
@@ -328,11 +390,16 @@ class _AgePage extends StatelessWidget {
 }
 
 /// A plain, equally-weighted age choice. Kept deliberately uniform so no option
-/// is visually favoured over another.
+/// is visually favoured over another; the only emphasis is the player's own pick.
 class _AgeOption extends StatelessWidget {
-  const _AgeOption({required this.label, required this.onTap});
+  const _AgeOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -341,10 +408,13 @@ class _AgeOption extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: theme.colorScheme.surface,
+        color: selected ? theme.colorScheme.primaryContainer : theme.colorScheme.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-          side: BorderSide(color: theme.colorScheme.outline, width: 1.5),
+          side: BorderSide(
+            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
+            width: selected ? 2 : 1.5,
+          ),
         ),
         child: InkWell(
           onTap: onTap,
@@ -363,9 +433,58 @@ class _AgeOption extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.chevron_right,
-                    color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  selected ? Icons.check_circle : Icons.chevron_right,
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small, tappable month pill for the optional birthday-month picker.
+class _MonthChip extends StatelessWidget {
+  const _MonthChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: selected ? theme.colorScheme.primary : theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
+          width: 1.5,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Text(
+            label,
+            style: GoogleFonts.fredoka(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: selected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
             ),
           ),
         ),
@@ -393,27 +512,22 @@ class _LocationPage extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     return _ConsentLayout(
       hero: const _LocationHero(),
-      title: 'Where the cats are\n(roughly!)',
+      title: 'Find cats around you',
       cards: [
         _InfoCard(
           chipColor: theme.colorScheme.primaryContainer,
           icon: Icons.location_on,
           iconColor: AppTheme.terracotta,
-          text: const TextSpan(children: [
-            TextSpan(text: 'We only ever use your '),
-            TextSpan(
-                text: 'neighborhood',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            TextSpan(text: " — never your exact spot, and never anyone else's."),
-          ]),
+          text: const TextSpan(
+            text: 'We use only your general area — not your exact location.',
+          ),
         ),
         _InfoCard(
           chipColor: theme.colorScheme.secondaryContainer,
           icon: Icons.blur_on,
           iconColor: isLight ? const Color(0xFF6E8C66) : AppTheme.sage,
           text: const TextSpan(
-            text: "Cat locations are fuzzy on purpose. "
-                "You'll see a cozy zone, not a pin.",
+            text: 'Cats appear in a nearby zone, never at a precise spot.',
           ),
         ),
         _InfoCard(
@@ -421,12 +535,11 @@ class _LocationPage extends StatelessWidget {
           icon: Icons.tune,
           iconColor: theme.colorScheme.onSurfaceVariant,
           text: const TextSpan(
-            text: 'Change your mind anytime in your device settings. '
-                'No hard feelings.',
+            text: 'You can change this anytime in Settings.',
           ),
         ),
       ],
-      primaryLabel: 'Share my neighborhood',
+      primaryLabel: 'Share my general area',
       onPrimary: onShare,
       secondaryLabel: 'Not now — show a sample map',
       onSecondary: onSkip,
@@ -528,26 +641,32 @@ class _CameraPage extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     return _ConsentLayout(
       hero: const _CameraHero(),
-      title: 'Camera — for cat\nphotos only',
+      title: 'Snap adorable cats',
       cards: [
-        _InfoCard(
-          chipColor: theme.colorScheme.primaryContainer,
-          icon: Icons.smartphone,
-          iconColor: AppTheme.terracotta,
-          text: const TextSpan(children: [
-            TextSpan(text: 'Photos stay on your device unless '),
-            TextSpan(
-                text: 'you', style: TextStyle(fontWeight: FontWeight.w800)),
-            TextSpan(text: ' choose to share a cat card.'),
-          ]),
-        ),
         _InfoCard(
           chipColor: theme.colorScheme.secondaryContainer,
           icon: Icons.pets,
           iconColor: isLight ? const Color(0xFF6E8C66) : AppTheme.sage,
           text: const TextSpan(
-            text: 'Point it at cats, not people. '
-                'Please ask before photographing anyone else.',
+            text: 'Use your camera to discover and collect real cats.',
+          ),
+        ),
+        _InfoCard(
+          chipColor: theme.colorScheme.primaryContainer,
+          icon: Icons.smartphone,
+          iconColor: AppTheme.terracotta,
+          text: const TextSpan(
+            text: 'Your photos stay on your device unless you choose to '
+                'share them.',
+          ),
+        ),
+        _InfoCard(
+          chipColor: theme.colorScheme.surfaceContainerHigh,
+          icon: Icons.favorite,
+          iconColor: theme.colorScheme.onSurfaceVariant,
+          text: const TextSpan(
+            text: "Please respect people's privacy and ask before taking "
+                'their photo.',
           ),
         ),
       ],
@@ -634,12 +753,11 @@ class _GuardianNote extends StatelessWidget {
             child: Text.rich(
               const TextSpan(children: [
                 TextSpan(
-                  text: 'Playing with a grown-up? ',
+                  text: 'Under 13? ',
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
                 TextSpan(
-                  text: "If you're under 13, please set up Cat-ch together "
-                      'with a parent or guardian.',
+                  text: 'Ask a parent or guardian to help you get started.',
                 ),
               ]),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -870,6 +988,25 @@ class _CatMark extends StatelessWidget {
         color: AppTheme.peach,
       ),
       child: Icon(Icons.pets, size: size * 0.42, color: AppTheme.terracotta),
+    );
+  }
+}
+
+/// The Cat-ch wordmark logo. Renders the bundled brand art, falling back to the
+/// simple paw mark if the asset can't be loaded (e.g. in a bare test harness) so
+/// onboarding never fails on a missing image.
+class _LogoMark extends StatelessWidget {
+  const _LogoMark({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/branding/logo.png',
+      width: width,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stack) => const _CatMark(size: 132),
     );
   }
 }

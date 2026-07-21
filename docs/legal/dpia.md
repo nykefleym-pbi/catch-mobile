@@ -31,6 +31,7 @@ Full detail: dossier §1 (data inventory), §2 (sub-processors), and
 | Detect a cat + generate a sprite | camera photo (transient) | on-device detection, then one TLS call to an image provider | **deleted immediately after generation** |
 | Frame the map / "where we met" | coarse region label only | precise GPS fuzzed **on device**, precise value discarded | with the cat row until deletion |
 | Age-appropriate handling | coarse age band (`under13`/`teen`/`adult`) | self-declared, no birth date | profile |
+| Celebrate a birthday month | birthday **month only** (1–12), optional | self-declared, on-device only, no day/year | device (SharedPreferences) |
 | Run + save the game | account (anonymous by default), gameplay | owner-scoped (RLS) | until account deletion |
 | Keep the community safe | reports, blocks, restrictions | friends-only social + moderation | 12 months after resolution |
 | Product analytics | sanitised events | PII/location stripped; **none for under-13** | rolling window |

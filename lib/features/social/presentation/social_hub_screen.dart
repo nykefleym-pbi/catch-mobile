@@ -685,8 +685,8 @@ class _AgePrompt extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tell us your age band so we can keep playing-with-others safe. '
-              'We only keep a rough band — never your birthday.',
+              'Tell us your age band so we can keep playing with others safe. '
+              'We only keep a rough age band — nothing more here.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

@@ -34,3 +34,32 @@ class OnboardingController extends Notifier<bool> {
 
 final onboardingCompleteProvider =
     NotifierProvider<OnboardingController, bool>(OnboardingController.new);
+
+/// Persisted key for the player's birth month (1–12, or 0 = not shared).
+///
+/// We keep only the *month* — never a day or year — so it's enough to celebrate
+/// someone's special month without collecting a full birth date (still honours
+/// the data-minimization posture of the age gate). It's optional; a player can
+/// skip it. Stored locally so the birthday-celebration feature can read it
+/// without a round-trip.
+const _birthMonthKey = 'birth_month_v1';
+
+/// Holds the (optional) birth month chosen during onboarding. `null` means the
+/// player hasn't shared one; otherwise 1 (January) … 12 (December).
+class BirthMonthController extends Notifier<int?> {
+  @override
+  int? build() {
+    final stored = ref.read(sharedPreferencesProvider).getInt(_birthMonthKey);
+    return (stored != null && stored >= 1 && stored <= 12) ? stored : null;
+  }
+
+  /// Records the chosen month (1–12) and persists it.
+  Future<void> set(int month) async {
+    if (month < 1 || month > 12) return;
+    await ref.read(sharedPreferencesProvider).setInt(_birthMonthKey, month);
+    state = month;
+  }
+}
+
+final birthMonthProvider =
+    NotifierProvider<BirthMonthController, int?>(BirthMonthController.new);

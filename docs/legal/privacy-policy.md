@@ -36,7 +36,10 @@ Some features and data uses are **restricted by age band** (see §7 and §8):
   social where enabled.
 - **18+ ("adult"):** standard experience with opt-in social.
 
-We ask for an **age band only — never a birth date.**
+We ask for an **age band only — never a birth date.** You may *optionally* share
+your **birthday month** (the month alone, e.g. "July") so the app can celebrate
+your special month. It is not a birth date, it stays on your device, and you can
+skip it or clear it at any time.
 
 ## 3. What we collect, why, and for how long
 
