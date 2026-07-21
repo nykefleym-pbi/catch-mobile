@@ -43,7 +43,7 @@ void main() {
     });
 
     test('an unknown mode parses to null, not a crash', () {
-      final m = Match.fromMap({
+      final m = Match.fromMap(const {
         'id': 'm2',
         'mode': 'battle',
         'challenger_id': 'A',
