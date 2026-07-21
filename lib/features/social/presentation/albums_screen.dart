@@ -25,9 +25,9 @@ class AlbumsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Photo albums')),
-      body: SafeArea(
+      body: const SafeArea(
         top: false,
-        child: kSocialLive ? const _AlbumsList() : const _AlbumsGatedState(),
+        child: kSocialLive ? _AlbumsList() : _AlbumsGatedState(),
       ),
     );
   }
@@ -269,8 +269,7 @@ class AlbumDetailScreen extends ConsumerWidget {
   Future<void> _addCats(
       BuildContext context, WidgetRef ref, Album album) async {
     final inAlbum = album.cats.map((c) => c.catId).toSet();
-    final catsAsync = ref.read(catsProvider);
-    final all = catsAsync.valueOrNull ?? await ref.read(catsProvider.future);
+    final all = await ref.read(catsProvider.future);
     final available = all.where((c) => !inAlbum.contains(c.id)).toList();
     if (!context.mounted) return;
     if (available.isEmpty) {
