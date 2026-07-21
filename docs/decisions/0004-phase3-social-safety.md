@@ -151,6 +151,26 @@ age gate and a master switch that defaults off.**
   `location_label`**. The client (`AlbumsScreen` to manage, `FriendAlbumsScreen`
   to view) is reached from the hub and from a visited friend, still gated by
   `kSocialLive`; sharing is disabled in the UI for non-adults as well.
+- **Clubs + cooperative challenges** are built too (migration 0016) — the most
+  exposure-prone surface, so built the most conservatively. Three tables
+  (`clubs`, `club_members`, `club_challenges`) carry RLS with **no client
+  policies**: like `moderation_actions`, every read and write goes through
+  guarded SECURITY DEFINER RPCs (`create_club`, `invite_to_club`,
+  `respond_club_invite`, `leave_club`, `start_club_challenge`,
+  `club_contribute`, `list_my_clubs`, `list_club_members`), which enforce the
+  safety rules in one auditable place and sidestep recursive-RLS pitfalls. The
+  rules: **invite-only between accepted friends** (no stranger ever pulls you
+  into a group; no club discovery/directory); **no stranger-identity leak** —
+  the roster RPC reveals a co-member's display name only to their accepted
+  friend (or the viewer themself), so a minor never learns a stranger's handle
+  even inside a shared club; **no chat** (cooperation is a shared progress bar,
+  not messaging); **no pay-to-win** — `club_contribute` takes no purchase input
+  and completing a goal grants only a celebratory state, never an ownable /
+  tradable reward; and every mutating RPC re-checks `social_allowed` (the 0013
+  under-13 ban) and refuses restricted accounts. A club name is user-generated
+  content, so `'club'` was added as a reportable target type (reports /
+  moderation constraints + `submit_report`). The client (`ClubsScreen`,
+  `ClubDetailScreen`) is reached from the hub, still gated by `kSocialLive`.
 - A **pre-launch legal/privacy review** (ADR 0003, R7) remains. The
   engineering-side input for it — a data-inventory + COPPA/GDPR-K/AADC control map
   with gaps flagged — is drafted in

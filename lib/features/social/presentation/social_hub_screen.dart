@@ -15,6 +15,7 @@ import '../../pvp/presentation/matches_screen.dart';
 import '../data/social_repository.dart';
 import '../domain/friend.dart';
 import 'albums_screen.dart';
+import 'clubs_screen.dart';
 import 'visit_screen.dart';
 
 /// The social hub (roadmap p3c) — friends, a cosmetic showcase, and honest
@@ -241,12 +242,18 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        const _ComingSoonCard(
-          icon: Icons.groups_outlined,
-          title: 'Clubs & cooperative challenges',
-          body: 'Team up in small, kind clubs for gentle shared goals — caring '
-              'together, never competing to spend. Friends-based, moderated, and '
-              'safe for younger guardians.',
+        InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const ClubsScreen()),
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: const _ComingSoonCard(
+            icon: Icons.groups_outlined,
+            title: 'Clubs & cooperative challenges',
+            body: 'Team up in small, kind clubs for gentle shared goals — '
+                'caring together, never competing to spend. Friends-based, '
+                'moderated, and safe for younger guardians.',
+          ),
         ),
       ],
     );

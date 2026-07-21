@@ -17,7 +17,8 @@ enum ReportTargetType {
   profile('profile'),
   cat('cat'),
   trade('trade'),
-  message('message');
+  message('message'),
+  club('club');
 
   const ReportTargetType(this.token);
 

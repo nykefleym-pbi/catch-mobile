@@ -75,8 +75,8 @@ Likelihood (L) and Severity (S) on Low / Med / High, after the controls in §6.
 |---|------------------------|----------|-------------------|----------------|
 | R1 | A child's photo is retained or leaked | High | on-device cat-detection gate; single transient TLS send; **deleted immediately after generation**; no-training/no-retention provider terms `[confirm]` | Low × High |
 | R2 | A real cat's / child's **location** is exposed | High | precise GPS fuzzed on device and discarded; only a coarse label stored; never a map pin; not shown when visiting | Low × High |
-| R3 | An under-13 is drawn into social contact with a stranger | High | under-13 social ban **enforced server-side** (migration 0013); friends-only graph, no stranger queue; no public directory | Low × High |
-| R4 | An adult contacts / grooms a minor | High | friends-only + code-based (no discovery); report/block on every surface; moderation floor (0009) + operable console (0011) + interim moderator SLA | Low × High |
+| R3 | An under-13 is drawn into social contact with a stranger | High | under-13 social ban **enforced server-side** (migration 0013); friends-only graph, no stranger queue; no public directory; clubs are invite-only between friends and never leak a stranger's identity (0016) | Low × High |
+| R4 | An adult contacts / grooms a minor | High | friends-only + code-based (no discovery); report/block on every surface (incl. club UGC); moderation floor (0009) + operable console (0011) + interim moderator SLA | Low × High |
 | R5 | Processing a child's data without a valid basis | Med | neutral age gate; reduced-data mode for under-13; VPC flow for any under-13 PII; lawful-basis register | Low × Med |
 | R6 | Profiling / dark patterns pressure a child | Med | no ad SDKs; analytics off for minors; cosmetic-only, no pay-to-win, no FOMO/countdowns; conservative minor defaults (AADC) | Low × Low |
 | R7 | A player cannot exercise their rights | Med | in-app account deletion (cascade) + email route; retention schedule documented | Low × Med |
