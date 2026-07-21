@@ -10,13 +10,16 @@ import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
 import '../data/location_service.dart';
 
-/// Warms the cold default OSM raster tiles into a soft pastel "storybook"
-/// palette: nudge channels toward amber, ease off the blues, and lift the
-/// midtones so the map reads cozy rather than utilitarian.
+/// Warms the near-white CARTO Positron raster tiles into a soft cream
+/// "storybook" palette AND deepens them a touch: the previous matrix lifted
+/// the midtones, which washed Positron's already-pale land to pure white and
+/// swallowed the faint road linework. These negative offsets pull the land
+/// down to a warm cream while the white roads stay lighter, so the streets
+/// read as pale lines again instead of vanishing.
 const _cozyMapMatrix = <double>[
-  0.93, 0.11, 0.04, 0, 8, //
-  0.06, 0.91, 0.05, 0, 6, //
-  0.05, 0.12, 0.79, 0, -2, //
+  0.95, 0.06, 0.02, 0, -14, //
+  0.05, 0.94, 0.03, 0, -18, //
+  0.03, 0.07, 0.85, 0, -26, //
   0, 0, 0, 1, 0, //
 ];
 
