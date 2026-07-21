@@ -161,11 +161,14 @@ interim moderator**.
    assurance over a **self-declared** band, not birth-date verification — counsel
    still confirms sufficiency for the live-social risk tier (AADC proportionality),
    and any move to admit under-13 into social would require VPC instead of the ban.
-2. **Client social UIs** — friendly contests/matches, visiting a friend's
-   showcase, shared photo albums, and clubs + cooperative challenges are now
-   built as gated client surfaces (rendering honest gated states while
-   `kSocialLive` is off). The only remaining Phase 3 surface is **trading**,
-   which needs a seeded tradable-cosmetic catalogue built first.
+2. ~~**Client social UIs**~~ **— built (2026-07-22).** Every Phase 3 social
+   surface now has a real, gated client (rendering honest gated states while
+   `kSocialLive` is off): friendly contests/matches, visiting a friend's
+   showcase, shared photo albums, clubs + cooperative challenges, and **cosmetic
+   trading** — the last one unblocked by seeding a tradable-cosmetic charm
+   catalogue (migration 0017). Still owed before the flip: a full multi-profile
+   staging test of the trade swap, and the moderation-staffing + realtime
+   prerequisites below (these are ops/decision items, not client code).
 3. ~~**DPIA** written up from §1–§4~~ **— drafted (2026-07-22):**
    [dpia.md](dpia.md) (self-prepared v1.0). Residual open items it carries:
    sub-processor DPAs + transfer basis (R8), and age-assurance sufficiency for the

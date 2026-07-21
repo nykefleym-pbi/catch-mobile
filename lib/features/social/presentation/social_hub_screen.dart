@@ -16,6 +16,7 @@ import '../data/social_repository.dart';
 import '../domain/friend.dart';
 import 'albums_screen.dart';
 import 'clubs_screen.dart';
+import 'trading_screen.dart';
 import 'visit_screen.dart';
 
 /// The social hub (roadmap p3c) — friends, a cosmetic showcase, and honest
@@ -197,12 +198,19 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
         const SizedBox(height: 20),
         const _SectionLabel('COMING WHEN WE CAN HOST IT SAFELY'),
         const SizedBox(height: 8),
-        const _ComingSoonCard(
-          icon: Icons.swap_horiz,
-          title: 'Cosmetic trading',
-          body: 'Swap collars and decor with friends — cosmetics only, never '
-              'anything you can win with or buy your way through, and never for '
-              'real money. Only between friends, with reporting built in.',
+        InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const TradingScreen()),
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: const _ComingSoonCard(
+            icon: Icons.swap_horiz,
+            title: 'Cosmetic trading',
+            body: 'Swap cozy charms with friends to complete your set — '
+                'cosmetics only, never anything you can win with or buy your '
+                'way through, and never for real money. Only between friends, '
+                'with reporting built in.',
+          ),
         ),
         const SizedBox(height: 12),
         InkWell(

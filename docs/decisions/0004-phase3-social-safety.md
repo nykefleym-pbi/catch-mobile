@@ -96,10 +96,18 @@ age gate and a master switch that defaults off.**
   `trades` insert/update policies are dropped so nothing can mark a trade
   completed without performing the swap. Supabase Realtime is enabled on
   `trades` (RLS still scopes delivery to the two parties). It stays behind
-  `kSocialLive=false` and has no live UI; still owed before flipping it on: a
-  seeded catalogue of *tradable* cosmetic items (today's cosmetics unlock by
-  bond and aren't ownable instances), a full multi-profile staging test of the
-  swap, moderation staffing, and the legal review below.
+  `kSocialLive=false`. The **tradable-cosmetic catalogue is now seeded**
+  (migration 0017): eight cosmetic "charms" — ownable `inventory` instances,
+  `is_cosmetic`, granting no affection and touching no cat stat — with every
+  player given a *varied* deterministic starter set (no purchase, no random
+  loot-box, no scarcity/FOMO), so the loop is "complete your set by trading
+  with friends". A gated **client** now exists too (`TradingScreen` /
+  `ProposeTradeScreen`): a charm collection view, incoming/outgoing proposals
+  with accept/decline/cancel, and a two-sided offer builder that never sees a
+  friend's inventory (a request is built from the public catalogue and validated
+  against the recipient's stock only at accept time). Still owed before flipping
+  it on: a full multi-profile staging test of the swap, moderation staffing, and
+  the legal review below.
 - **In-app moderation console / staffing** — an ops function (R9, Phase 5).
 - **Cross-user feed / stranger discovery** — intentionally friends-only.
 - **Any donation / real-money surface** — Phase 4, legally gated (R10).
