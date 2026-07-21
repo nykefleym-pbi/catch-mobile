@@ -23,7 +23,8 @@ class GuardianRepository {
       (sum, row) => sum + ((row['friendship_level'] as num?)?.toInt() ?? 0),
     );
 
-    // Distinct fuzzed neighbourhoods (coords are already coarse ~1 km, 2 dp).
+    // Distinct fuzzed neighbourhoods. Stored coords are coarse (~110 m, 3 dp);
+    // grouping at 2 dp keeps "places walked" at a neighbourhood granularity.
     final places = <String>{};
     for (final row in cats) {
       final lat = _toDouble(row['geo_lat']);

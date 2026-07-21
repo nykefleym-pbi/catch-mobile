@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../seasonal/presentation/seasonal_banner.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -115,11 +114,6 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
               ],
             ],
           ),
-        ),
-        const SizedBox(height: 14),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: SeasonalBanner(),
         ),
         const SizedBox(height: 14),
         Padding(
@@ -384,7 +378,8 @@ class _CatCard extends StatelessWidget {
   }
 }
 
-/// First-run empty state for the CatDex — a waiting scrapbook, per the design.
+/// First-run empty state for the CatDex — a gentle nudge toward the camera, with
+/// a trail of paw prints (small → large) stepping down to the Capture button.
 class _ScrapbookEmpty extends StatelessWidget {
   const _ScrapbookEmpty();
 
@@ -392,60 +387,65 @@ class _ScrapbookEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
       child: Column(
         children: [
-          // A softly striped "blank page" circle cradling a faded paw.
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  theme.colorScheme.surfaceContainerHigh,
-                  theme.colorScheme.surface,
-                ],
-              ),
-            ),
-            child: Icon(
-              Icons.pets,
-              size: 34,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
-            'Your scrapbook is waiting',
+            "Let's meet your first fur-iend",
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: theme.textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
-            'Every cat you meet on a walk gets a page here. The neighborhood '
-            'is full of stories — go say hi.',
+            'Tap the paw button below to open the camera and say hi.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              height: 1.55,
+              height: 1.5,
             ),
           ),
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: () => context.go(AppRoutes.map),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24)),
-            ),
-            child: const Text('Open the map'),
-          ),
+          const _PawTrail(),
         ],
       ),
+    );
+  }
+}
+
+/// A trail of paw prints growing small → large as it steps down and drifts
+/// toward the raised Capture (camera) button in the bottom nav.
+class _PawTrail extends StatelessWidget {
+  const _PawTrail();
+
+  static const _steps = [
+    (size: 16.0, dx: -30.0, angle: -0.5),
+    (size: 20.0, dx: -12.0, angle: -0.28),
+    (size: 26.0, dx: 8.0, angle: -0.12),
+    (size: 33.0, dx: 26.0, angle: 0.05),
+    (size: 42.0, dx: 44.0, angle: 0.2),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < _steps.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Transform.translate(
+              offset: Offset(_steps[i].dx, 0),
+              child: Transform.rotate(
+                angle: _steps[i].angle,
+                child: Icon(
+                  Icons.pets,
+                  size: _steps[i].size,
+                  color: AppTheme.terracotta.withValues(alpha: 0.30 + i * 0.14),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

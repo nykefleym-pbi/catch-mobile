@@ -37,14 +37,17 @@ void main() {
   });
 
   group('SafePlay showcase location safety', () {
-    test('coarse (<=2dp) or absent coordinates are safe', () {
+    test('coarse (<=3dp) or absent coordinates are safe', () {
       expect(SafePlay.isCoarseCoordinate(null), isTrue);
       expect(SafePlay.isCoarseCoordinate(51.51), isTrue);
-      expect(SafePlay.showcaseIsLocationSafe(lat: 51.51, lng: -0.13), isTrue);
+      // 3dp (~110 m) is the current fuzz precision and is considered coarse.
+      expect(SafePlay.isCoarseCoordinate(51.507), isTrue);
+      expect(SafePlay.showcaseIsLocationSafe(lat: 51.507, lng: -0.128), isTrue);
       expect(SafePlay.showcaseIsLocationSafe(), isTrue);
     });
 
     test('a precise coordinate leaks a location and is rejected', () {
+      // Finer than 3dp (full device precision) is never persisted.
       expect(SafePlay.isCoarseCoordinate(51.507351), isFalse);
       expect(
         SafePlay.showcaseIsLocationSafe(lat: 51.507351, lng: -0.127758),

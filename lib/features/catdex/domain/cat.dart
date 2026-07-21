@@ -26,7 +26,7 @@ class Cat {
   /// no collar. Matches the client collar catalogue (features/wardrobe).
   final String? collarId;
 
-  /// Coarse, privacy-fuzzed coordinates of where this cat was met (~1 km).
+  /// Coarse, privacy-fuzzed coordinates of where this cat was met (~110 m).
   /// Null when the catch was made with location off. Used only for the map pin.
   final double? lat;
   final double? lng;

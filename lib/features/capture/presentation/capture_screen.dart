@@ -348,85 +348,89 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       return const _Centered(child: CircularProgressIndicator());
     }
     final analyzing = _stage == _Stage.analyzing;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: controller.value.previewSize?.height ?? 0,
-            height: controller.value.previewSize?.width ?? 0,
-            child: CameraPreview(controller),
+    final frameColor = analyzing ? AppTheme.sage : AppTheme.apricot;
+    return SafeArea(
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Text(
+            'Meet a cat',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-        ),
-        // Cozy rounded viewfinder frame with corner brackets.
-        Positioned.fill(
-          child: SafeArea(
+          const SizedBox(height: 12),
+          // The live feed lives inside a cozy, contained viewfinder window
+          // (rounded frame + corner brackets) rather than filling the screen.
+          Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 56, 14, 120),
-              child: _ViewfinderFrame(
-                color: analyzing ? AppTheme.sage : AppTheme.apricot,
-              ),
-            ),
-          ),
-        ),
-        // Title.
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Meet a cat',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                      shadows: const [Shadow(blurRadius: 8, color: Colors.black54)],
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: controller.value.previewSize?.height ?? 0,
+                        height: controller.value.previewSize?.width ?? 0,
+                        child: CameraPreview(controller),
+                      ),
                     ),
-              ),
-            ),
-          ),
-        ),
-        // Top hint pill.
-        const SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: EdgeInsets.only(top: 68),
-              child: _HintPill(
-                text: 'Point at a cat — no flash, no rush',
-              ),
-            ),
-          ),
-        ),
-        // Bottom status + shutter.
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (analyzing) ...[
-                    const _StatusPill(
-                      color: Color(0xFFFFFDF8),
-                      textColor: AppTheme.ink,
-                      dotColor: Color(0xFFD9A03F),
-                      text: 'Looking gently…',
-                      pulse: true,
+                    // Soft rounded frame border (calm apricot, sage while looking).
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: frameColor, width: 3),
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    _ViewfinderFrame(color: frameColor),
+                    // Top hint pill.
+                    const Positioned(
+                      top: 14,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: _HintPill(
+                          text: 'Point at a cat — no flash, no rush',
+                        ),
+                      ),
+                    ),
+                    // Bottom status pill (the "checking" detection state).
+                    if (analyzing)
+                      const Positioned(
+                        bottom: 16,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: _StatusPill(
+                            color: Color(0xFFFFFDF8),
+                            textColor: AppTheme.ink,
+                            dotColor: Color(0xFFD9A03F),
+                            text: 'Looking gently…',
+                            pulse: true,
+                          ),
+                        ),
+                      ),
                   ],
-                  _ShutterButton(
-                    onPressed: analyzing ? null : () => unawaited(_capture()),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 18),
+            child: _ShutterButton(
+              onPressed: analyzing ? null : () => unawaited(_capture()),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -765,8 +769,52 @@ class _GeneratingCardState extends State<_GeneratingCard>
     duration: const Duration(milliseconds: 1600),
   )..repeat();
 
+  // Cozy reassurance copy that rotates while the companion is generated, so the
+  // wait always feels alive (and never like a frozen screen). Advances every
+  // 10 seconds; starts on a random line so repeat catches don't feel scripted.
+  static const _messages = [
+    'Getting to know them…',
+    'Painting whiskers, one by one…',
+    'Looking closely at those adorable eyes…',
+    'Matching their unique fur pattern…',
+    'Adding a little sparkle to their personality…',
+    'Practicing their cutest pose…',
+    'Fluffing every last tuft of fur…',
+    'Capturing what makes them special…',
+    'Writing the first page of their story…',
+    'Making sure every pixel feels just right…',
+    'Almost ready to meet your new friend…',
+    'Putting on the finishing paw touches…',
+    'Following tiny paw prints…',
+    'Untangling a ball of yarn…',
+    'Offering a tasty treat…',
+    'Waiting for a curious sniff…',
+    'Waking up sleepy whiskers…',
+    'Picking the perfect colors…',
+    'Capturing their best side…',
+    "Giving them a name they'll love…",
+    'Filling them with personality…',
+    'One more happy purr…',
+    'Straightening their little ears…',
+    'Here they come…',
+  ];
+
+  Timer? _messageTimer;
+  int _messageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageIndex = DateTime.now().millisecondsSinceEpoch % _messages.length;
+    _messageTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      setState(() => _messageIndex = (_messageIndex + 1) % _messages.length);
+    });
+  }
+
   @override
   void dispose() {
+    _messageTimer?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -824,11 +872,25 @@ class _GeneratingCardState extends State<_GeneratingCard>
               ),
             ),
             const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: Text(
+                _messages[_messageIndex],
+                // Key by index so AnimatedSwitcher cross-fades between lines.
+                key: ValueKey(_messageIndex),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             Text(
-              'Getting to know them…\npainting whiskers, one by one',
+              'Every cat is uniquely generated, so it may take a little longer.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
                 height: 1.5,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1124,6 +1186,10 @@ class _ShutterButton extends StatelessWidget {
                   color: AppTheme.ink.withValues(alpha: 0.25),
                   width: 3,
                 ),
+              ),
+              // A little paw print marks the shutter.
+              child: const Center(
+                child: Icon(Icons.pets, size: 28, color: Color(0xFFFFF7EF)),
               ),
             ),
           ),

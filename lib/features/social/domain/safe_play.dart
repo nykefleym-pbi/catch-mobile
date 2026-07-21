@@ -68,12 +68,12 @@ class SafePlay {
   static bool rewardIsCosmeticOnly(String rewardKind) =>
       _cosmeticRewardKinds.contains(rewardKind.toLowerCase());
 
-  /// A coordinate is "coarse" when it is absent or fuzzed to <= 2 decimal places
-  /// (~1.1 km) — the only precision the app ever persists (ADR 0001 / data
+  /// A coordinate is "coarse" when it is absent or fuzzed to <= 3 decimal places
+  /// (~110 m) — the only precision the app ever persists (ADR 0001 / data
   /// model). A finer value would mean a precise location leaked in.
   static bool isCoarseCoordinate(double? value) {
     if (value == null) return true;
-    final rounded = (value * 100).round() / 100;
+    final rounded = (value * 1000).round() / 1000;
     return (value - rounded).abs() < 1e-9;
   }
 

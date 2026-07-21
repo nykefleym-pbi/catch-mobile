@@ -62,7 +62,7 @@ A player's companion generated from a successful capture.
 - `friendship_level` *(v1: basic)*
 - `growth_stage` — kitten/young/adult/senior *(Phase 2; default kitten in v1)*
 - `geo_lat`, `geo_lng` — **coarse** "where you met them" point for the Explore
-  map memory pin, rounded to ~2 decimals (~1.1 km) by the Edge Function before
+  map memory pin, rounded to ~3 decimals (~110 m) by the Edge Function before
   storage. Nullable (a catch made with location off has no pin). Precise
   coordinates are never persisted (see location-privacy note below).
 - `discovered_at`

@@ -87,18 +87,20 @@ interface GenerateRequest {
   mimeType?: string;
   detection?: Record<string, unknown>;
   // Coarse "where you met them" location for the Explore map. Optional — a catch
-  // with location off omits these. Fuzzed to ~1 km before persistence (below).
+  // with location off omits these. Fuzzed to ~110 m before persistence (below).
   lat?: number;
   lng?: number;
 }
 
-// Round a device coordinate to a neighbourhood-level point (~1.1 km at 2 dp)
-// before it is stored. Precise coordinates are never persisted (ADR 0001).
-// Returns null for anything out of range or not a finite number.
+// Round a device coordinate to a nearby point (~110 m at 3 dp) before it is
+// stored, so the pin lands close to where the cat was met without ever being an
+// exact spot. Precise coordinates are never persisted (ADR 0001); the rounding
+// discards the device's real precision. Returns null for anything out of range
+// or not a finite number.
 function fuzzCoord(value: unknown, max: number): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   if (value < -max || value > max) return null;
-  return Math.round(value * 100) / 100;
+  return Math.round(value * 1000) / 1000;
 }
 
 interface CompanionMeta {
@@ -252,7 +254,8 @@ Deno.serve(async (req: Request) => {
       log(`vision described: ${described || "(none)"}`);
       sprite = await generateSpritePixellab(pixellabToken!, described);
       meta = localMeta();
-      if (described) meta.blurb = described;
+      // Build the fuller story from the real cat's described appearance.
+      meta.blurb = composeStory(meta.trait_id, described);
     } else {
       sprite = await generateSpriteCloudflare(
         cfAccount!,
@@ -368,8 +371,10 @@ async function generateSpriteCloudflare(
     "cute chibi cartoon cat, flat 2d storybook illustration, clean " +
     "creature-collector game sprite, thick soft outlines, flat matte cel " +
     "shading, big friendly eyes, full body, sitting, centered, facing viewer, " +
-    "keep the cat's real natural fur colour and markings, natural realistic " +
-    "cat colours, plain solid soft cream background, adorable, high quality";
+    "consistent size, same scale, filling most of the frame, keep the cat's " +
+    "real age and body build, keep the cat's real natural fur colour and " +
+    "markings, natural realistic cat colours, plain solid soft cream " +
+    "background, adorable, high quality";
   // Negatives do the heavy lifting: kill invented fantasy colours (Butter went
   // purple/teal, Gizmo lost its white), background glows/halos (Gizmo's circle),
   // and the earlier floating-face / duplicate artifacts. The photoreal/painterly
@@ -460,9 +465,14 @@ async function generateSpritePixellab(
   description: string,
 ): Promise<Uint8Array> {
   const subject = description.length > 0 ? description : "a cute cat";
+  // Keep the framing identical for every catch so sprites share one consistent
+  // size: full body, same scale, filling most of the frame. The description
+  // carries the cat's age and build (kitten/senior, slim/chubby) so the sprite
+  // inherits whether the real cat is young or old, chubby or thin.
   const prompt =
     `cute pixel art cat, ${subject}, adorable chibi game companion sprite, ` +
-    `sitting, front view, centered, friendly big eyes`;
+    `sitting upright, front view, full body, centered, consistent size, ` +
+    `filling most of the frame, same scale, friendly big eyes`;
   const data = await fetchWithTimeout(
     `${PIXELLAB_BASE}/generate-image-pixflux`,
     {
@@ -519,8 +529,10 @@ async function describeCatVision(
           image: Array.from(bytes),
           prompt:
             "Describe only this cat's appearance in one short vivid phrase: " +
-            "coat colour, fur pattern, eye colour, and any distinctive " +
-            "markings. Do not mention the background or surroundings.",
+            "coat colour, fur pattern, eye colour, any distinctive markings, " +
+            "its approximate age (kitten, young, adult, or senior), and its " +
+            "body build (slim, average, or chubby). Do not mention the " +
+            "background or surroundings.",
           max_tokens: 200,
         }),
       },
@@ -545,11 +557,14 @@ async function generateSpriteGemini(
   const prompt =
     "Turn the cat in this photo into an adorable, cozy mobile-game companion " +
     "sprite. Keep it recognizably the SAME cat: preserve its coat colour, fur " +
-    "pattern, eye colour, ear and tail shape, and any distinctive markings. " +
+    "pattern, eye colour, ear and tail shape, any distinctive markings, and " +
+    "its apparent age and body build (a kitten stays small and a senior looks " +
+    "older; a chubby cat stays round and a slim cat stays slender). " +
     "Style: soft, warm, hand-illustrated chibi with gentle cel shading and a " +
     "friendly expression. Full body, sitting or standing, centered, facing the " +
-    "viewer. Render on a fully transparent background. No text, no borders, no " +
-    "watermark, no drop shadow on the ground.";
+    "viewer, at a consistent size that fills most of the frame. Render on a " +
+    "fully transparent background. No text, no borders, no watermark, no drop " +
+    "shadow on the ground.";
 
   const data = await fetchWithTimeout(
     `${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`,
@@ -598,7 +613,11 @@ async function describeCat(
   const prompt =
     "Look at this cat and describe it as collectible game-companion attributes. " +
     "Invent a short, cute, friendly name (1-2 words). Pick the single personality " +
-    "trait id that best fits its vibe. Keep every field concise.";
+    "trait id that best fits its vibe. For 'blurb', write 2-3 warm, whimsical " +
+    "sentences that cover ALL of: the cat's appearance, its personality, a " +
+    "playful made-up flavour detail, its favourite thing or food, and one fun " +
+    "habit (for example: 'A marmalade tabby who believes every sunbeam was made " +
+    "just for her.'). Keep every other field concise.";
 
   const schema = {
     type: "object",
@@ -701,8 +720,69 @@ const TRAIT_BLURBS: Record<string, string> = {
     "Watches from beneath the sofa at first — but win them over and you have a friend for life.",
 };
 
+// Whimsical "flavor" clauses ("a marmalade tabby who <belief>"), favourite
+// things/foods, and fun habits. Combined with the cat's appearance and its
+// trait personality, these build a richer story than a bare description — every
+// generated cat gets appearance + personality + flavor + a favourite + a habit.
+const BELIEFS = [
+  "believes every sunbeam was made just for them",
+  "is convinced the whole neighbourhood is theirs to inspect",
+  "greets every visitor like a long-lost friend",
+  "treats each cardboard box as a personal castle",
+  "is certain the rustle of any bag means snacks",
+  "keeps a secret map of the comfiest napping spots",
+  "thinks bedtime is merely a gentle suggestion",
+  "insists on supervising every meal from the doorway",
+];
+
+const FAVOURITES = [
+  "a warm windowsill at golden hour",
+  "crunchy little fish-shaped treats",
+  "a crinkly paper ball",
+  "the exact centre of any clean laundry",
+  "a slow chin scratch",
+  "chasing the red dot that always gets away",
+  "a saucer of warm goat's milk",
+  "the box a toy came in, never the toy",
+];
+
+const HABITS = [
+  "does a little biscuit-making dance before settling down",
+  "chirps at the morning birds through the window",
+  "carries a favourite toy from room to room",
+  "boops noses to say hello",
+  "curls into a perfect cinnamon-roll when sleepy",
+  "taps your hand for just one more scratch",
+  "leaves a single toy in the water bowl, for reasons unknown",
+  "stretches into an impossibly long loaf at sunrise",
+];
+
+const GENERIC_APPEARANCES = [
+  "a soft-furred little wanderer",
+  "a bright-eyed neighbourhood cat",
+  "a plush, round-cheeked sweetheart",
+  "a sleek and curious explorer",
+];
+
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function capitalize(s: string): string {
+  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
+
+// Weave the parts into a warm little story: appearance + a whimsical belief,
+// then the trait personality, a favourite thing, and a fun habit. `appearance`
+// is the vision phrase when we have one (Gemini/PixelLab paths); otherwise a
+// gentle generic stands in.
+function composeStory(traitId: string, appearance: string): string {
+  const appear = appearance.trim().replace(/\.+$/, "");
+  const opener = appear.length > 0 ? appear : pick(GENERIC_APPEARANCES);
+  const personality = TRAIT_BLURBS[traitId] ??
+    "A soft-hearted wanderer who picked your neighbourhood to call home.";
+  return `${capitalize(opener)}, who ${pick(BELIEFS)}. ${personality} ` +
+    `Favourite thing: ${pick(FAVOURITES)}. Fun habit: ${pick(HABITS)}.`;
 }
 
 function localMeta(): CompanionMeta {
@@ -715,8 +795,7 @@ function localMeta(): CompanionMeta {
     tail: "unknown",
     markings: "none noted",
     trait_id: trait,
-    blurb: TRAIT_BLURBS[trait] ??
-      "A soft-hearted wanderer who picked your neighbourhood to call home.",
+    blurb: composeStory(trait, ""),
   };
 }
 

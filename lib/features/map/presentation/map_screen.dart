@@ -60,7 +60,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (result.latLng != null) _me = result.latLng;
     });
     if (result.latLng != null) {
-      if (moveMap) _controller.move(result.latLng!, 15);
+      if (moveMap) _controller.move(result.latLng!, 16);
     } else if (result.error != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -81,13 +81,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ];
       try {
         if (points.length == 1) {
-          _controller.move(points.first, 15);
+          _controller.move(points.first, 16);
         } else {
           _controller.fitCamera(
             CameraFit.bounds(
               bounds: LatLngBounds.fromPoints(points),
               padding: const EdgeInsets.all(64),
-              maxZoom: 16,
+              maxZoom: 17,
             ),
           );
         }
@@ -119,7 +119,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   (located.isNotEmpty
                       ? LatLng(located.first.lat!, located.first.lng!)
                       : _fallbackCenter),
-              initialZoom: 13,
+              // Neighbourhood-level default — closer/more focused than a city view.
+              initialZoom: 15,
               minZoom: 3,
               maxZoom: 18,
             ),
@@ -132,7 +133,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ColorFiltered(
                 colorFilter: const ColorFilter.matrix(_cozyMapMatrix),
                 child: TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  // CARTO Positron: a clean, minimal "basic" basemap (soft roads,
+                  // few labels) rather than OSM's dense street detail — warmed by
+                  // the cozy colour matrix above. Free, key-less raster tiles.
+                  // A single CDN subdomain is baked in to avoid flutter_map's
+                  // deprecated `subdomains` field.
+                  urlTemplate:
+                      'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.catch_mobile',
                 ),
               ),
@@ -474,7 +481,7 @@ class _Attribution extends StatelessWidget {
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         child: Text(
-          '© OpenStreetMap contributors',
+          '© OpenStreetMap contributors © CARTO',
           style: TextStyle(fontSize: 10, color: Colors.black87),
         ),
       ),

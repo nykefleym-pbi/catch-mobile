@@ -204,7 +204,7 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(),
-          const _Breathing(child: _LogoMark(width: 280)),
+          const _Breathing(child: _LogoMark(width: 300)),
           const SizedBox(height: 26),
           Text(
             'Adventure begins with a meow',
