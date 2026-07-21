@@ -95,23 +95,24 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
                   style: theme.textTheme.headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text(
-                total == 0
-                    ? 'your journal awaits'
-                    : '$total ${total == 1 ? 'story' : 'stories'} & counting',
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              if (total > 0) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: () => context.push(AppRoutes.showcase),
-                  visualDensity: VisualDensity.compact,
-                  tooltip: 'My showcase',
-                  icon: Icon(Icons.auto_awesome_outlined,
-                      color: theme.colorScheme.primary),
+              if (total > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    '$total ${total == 1 ? 'story' : 'stories'} & counting',
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 ),
-              ],
+              // Scrapbook: opens the My Showcase board (replaces the old
+              // "your journal awaits" caption).
+              IconButton(
+                onPressed: () => context.push(AppRoutes.showcase),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'My showcase',
+                icon: Icon(Icons.auto_stories_outlined,
+                    color: theme.colorScheme.primary),
+              ),
             ],
           ),
         ),

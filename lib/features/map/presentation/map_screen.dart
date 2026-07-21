@@ -63,7 +63,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (result.latLng != null) _me = result.latLng;
     });
     if (result.latLng != null) {
-      if (moveMap) _controller.move(result.latLng!, 16);
+      if (moveMap) _controller.move(result.latLng!, 17);
     } else if (result.error != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -84,13 +84,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ];
       try {
         if (points.length == 1) {
-          _controller.move(points.first, 16);
+          _controller.move(points.first, 17);
         } else {
           _controller.fitCamera(
             CameraFit.bounds(
               bounds: LatLngBounds.fromPoints(points),
               padding: const EdgeInsets.all(64),
-              maxZoom: 17,
+              maxZoom: 18,
             ),
           );
         }
@@ -125,7 +125,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               // Neighbourhood-level default — closer/more focused than a city view.
               initialZoom: 15,
               minZoom: 3,
-              maxZoom: 18,
+              // Let players zoom all the way in to street level; CARTO raster
+              // tiles serve up to z20.
+              maxZoom: 20,
             ),
             children: [
               // Cozy re-theme: the default OpenStreetMap raster tiles are cold

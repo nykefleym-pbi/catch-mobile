@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -429,18 +430,25 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           ),
           Padding(
             padding: const EdgeInsets.only(top: 6, bottom: 18),
-            // Shutter stays centred; the close button sits at the left, in a
-            // disc that echoes the shutter (matching the design).
-            child: Stack(
-              alignment: Alignment.center,
+            // Full-width row: the shutter stays centred (flanked by equal-width
+            // Expandeds) while the close button pins to the far left, so the two
+            // never overlap.
+            child: Row(
               children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 28),
+                      child:
+                          _CloseShutterButton(onPressed: () => context.pop()),
+                    ),
+                  ),
+                ),
                 _ShutterButton(
                   onPressed: analyzing ? null : () => unawaited(_capture()),
                 ),
-                Positioned(
-                  left: 28,
-                  child: _CloseShutterButton(onPressed: () => context.pop()),
-                ),
+                const Expanded(child: SizedBox()),
               ],
             ),
           ),
@@ -502,7 +510,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       color: theme.scaffoldBackgroundColor,
       child: const Stack(
         children: [
-          Positioned.fill(child: _ConfettiDots()),
+          Positioned.fill(child: _WanderingPaws()),
           Center(child: _GeneratingCard()),
         ],
       ),
@@ -520,7 +528,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
       color: theme.scaffoldBackgroundColor,
       child: Stack(
         children: [
-          const Positioned.fill(child: _ConfettiDots()),
+          const Positioned.fill(child: _WanderingPaws()),
           SafeArea(
             child: Column(
               children: [
@@ -1105,29 +1113,81 @@ class _RevealTraitChip extends StatelessWidget {
   }
 }
 
-/// A few soft decorative dots behind the reveal — a calm, confetti-lite touch.
-class _ConfettiDots extends StatelessWidget {
-  const _ConfettiDots();
+/// Soft paw prints scattered behind the generating polaroid and the reveal —
+/// each a different size, gently drifting and fading in and out so the wait
+/// (and the celebration) always feels alive, like little paws padding past.
+/// Honours the platform reduce-motion setting (renders them still).
+class _WanderingPaws extends StatefulWidget {
+  const _WanderingPaws();
+
+  @override
+  State<_WanderingPaws> createState() => _WanderingPawsState();
+}
+
+class _WanderingPawsState extends State<_WanderingPaws>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 6),
+  )..repeat();
+
+  // Fractional position (-1..1), size, fade/drift phase, drift amount, tilt,
+  // and a colour index — a hand-scattered spread of varied paw prints.
+  static const _paws =
+      <({double x, double y, double size, double phase, double drift, double angle, int color})>[
+    (x: -0.72, y: -0.80, size: 15, phase: 0.00, drift: 10, angle: -0.4, color: 0),
+    (x: 0.70, y: -0.66, size: 12, phase: 0.35, drift: 8, angle: 0.5, color: 1),
+    (x: -0.58, y: -0.30, size: 23, phase: 0.60, drift: 12, angle: -0.2, color: 2),
+    (x: 0.76, y: -0.10, size: 14, phase: 0.15, drift: 9, angle: 0.3, color: 0),
+    (x: -0.82, y: 0.34, size: 18, phase: 0.80, drift: 11, angle: 0.15, color: 1),
+    (x: 0.62, y: 0.48, size: 25, phase: 0.45, drift: 13, angle: -0.35, color: 0),
+    (x: -0.34, y: 0.74, size: 13, phase: 0.25, drift: 8, angle: 0.4, color: 2),
+    (x: 0.30, y: 0.82, size: 20, phase: 0.70, drift: 10, angle: -0.1, color: 1),
+  ];
+
+  static const _colors = [AppTheme.apricot, AppTheme.sage, AppTheme.terracotta];
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    Widget dot(double size, Color color, double opacity) => Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: opacity),
-            shape: BoxShape.circle,
-          ),
-        );
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
     return IgnorePointer(
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          Positioned(top: 90, left: 34, child: dot(10, AppTheme.apricot, 0.5)),
-          Positioned(top: 130, right: 48, child: dot(8, AppTheme.sage, 0.5)),
-          Positioned(top: 210, right: 34, child: dot(9, AppTheme.apricot, 0.4)),
-          Positioned(top: 180, left: 52, child: dot(7, AppTheme.terracotta, 0.4)),
-          Positioned(bottom: 150, left: 40, child: dot(8, AppTheme.sage, 0.4)),
-          Positioned(bottom: 190, right: 44, child: dot(10, AppTheme.apricot, 0.4)),
+          for (final p in _paws)
+            AnimatedBuilder(
+              animation: _c,
+              builder: (context, _) {
+                final t = (_c.value + p.phase) % 1.0;
+                // Sine fade in→out; gentle elliptical drift so each paw "pads".
+                final fade =
+                    reduceMotion ? 0.38 : 0.16 + 0.34 * math.sin(math.pi * t);
+                final dx =
+                    reduceMotion ? 0.0 : math.cos(2 * math.pi * t) * p.drift * 0.5;
+                final dy =
+                    reduceMotion ? 0.0 : -math.sin(2 * math.pi * t) * p.drift;
+                return Align(
+                  alignment: Alignment(p.x, p.y),
+                  child: Transform.translate(
+                    offset: Offset(dx, dy),
+                    child: Transform.rotate(
+                      angle: p.angle,
+                      child: Opacity(
+                        opacity: fade.clamp(0.0, 1.0),
+                        child: Icon(Icons.pets,
+                            size: p.size, color: _colors[p.color]),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
