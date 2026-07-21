@@ -12,6 +12,7 @@ import '../../academy/data/academy_repository.dart';
 import '../../academy/domain/care_lesson.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../catdex/data/cats_repository.dart';
+import '../../moderation/data/moderation_repository.dart';
 import '../../social/data/social_inbox.dart';
 import '../data/guardian_repository.dart';
 import '../domain/guardian_profile.dart';
@@ -79,6 +80,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 16),
           const _FriendsCard(),
           const SizedBox(height: 16),
+          const _ModeratorCard(),
           const _AcademyCard(),
           const SizedBox(height: 16),
           const _AccountCard(),
@@ -466,6 +468,73 @@ class _FriendsCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Entry point to the moderation console, shown only to registered moderators
+/// ([amIModeratorProvider]); everyone else sees nothing. The server re-checks
+/// moderator status on every action, so this is a visibility hint, not a gate.
+class _ModeratorCard extends ConsumerWidget {
+  const _ModeratorCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isMod = ref.watch(amIModeratorProvider).valueOrNull ?? false;
+    if (!isMod) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Material(
+          color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: InkWell(
+            onTap: () => context.push(AppRoutes.moderation),
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                border: Border.all(color: theme.colorScheme.outline),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.shield_outlined,
+                        color: AppTheme.sage),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Moderation',
+                            style: theme.textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'Review reports and keep the community kind',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right,
+                      color: theme.colorScheme.onSurfaceVariant),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

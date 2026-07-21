@@ -11,6 +11,7 @@ import '../../features/home/presentation/home_shell.dart';
 import '../../features/academy/presentation/academy_screen.dart';
 import '../../features/auth/presentation/account_screen.dart';
 import '../../features/map/presentation/map_screen.dart';
+import '../../features/moderation/presentation/mod_console_screen.dart';
 import '../../features/onboarding/data/onboarding_repository.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -33,6 +34,7 @@ class AppRoutes {
   static const seasonal = '/seasonal';
   static const showcase = '/showcase';
   static const academy = '/academy';
+  static const moderation = '/moderation';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -105,6 +107,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.academy,
         builder: (context, state) => const AcademyScreen(),
+      ),
+      // Moderation console — the review queue for registered moderators only
+      // (entry shown from Profile just for them; server re-checks every action).
+      GoRoute(
+        path: AppRoutes.moderation,
+        builder: (context, state) => const ModConsoleScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.

@@ -9,7 +9,7 @@ void main() {
         'from_id': 'other',
         'to_id': toId,
         'status': status,
-        'offer': {'from': <dynamic>[], 'to': <dynamic>[]},
+        'offer': const {'from': <dynamic>[], 'to': <dynamic>[]},
       });
 
   Match match(String opponentId, String status) => Match.fromMap({
