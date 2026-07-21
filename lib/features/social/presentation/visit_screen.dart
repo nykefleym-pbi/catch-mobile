@@ -7,6 +7,7 @@ import '../../safety/presentation/report_block_sheet.dart';
 import '../data/social_repository.dart';
 import '../domain/safe_play.dart';
 import '../domain/showcase_cat.dart';
+import 'albums_screen.dart';
 
 /// Visiting an accepted friend's showcase (roadmap p3c). Read-only, friends-only,
 /// and free of any location: the cats come from the guarded `list_friend_showcase`
@@ -29,6 +30,18 @@ class VisitScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text("$friendName's cats"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: 'Albums',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FriendAlbumsScreen(
+                  friendId: friendId,
+                  friendName: friendName,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.flag_outlined),
             tooltip: 'Report or block',

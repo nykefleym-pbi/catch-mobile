@@ -94,7 +94,8 @@ Technical and organisational measures already in place (evidence: dossier §4):
   showcase; analytics sanitiser emits nothing for minors.
 - **RLS everywhere:** owner-only by default; the only cross-user reads are
   friends-only, opt-in, adult-only, and routed through guarded SECURITY DEFINER
-  RPCs that re-check friendship + block + age (migrations 0010/0012/0014).
+  RPCs that re-check friendship + block + age (migrations 0010/0012/0014/0015),
+  and never return a cat's location.
 - **Safety substrate before surfaces:** reports/blocks/restrictions with a hardened
   `submit_report`, a service-role-only moderation action log, and an interim
   moderator [runbook](../ops/moderation-runbook.md) with an SLA.

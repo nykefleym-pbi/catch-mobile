@@ -14,6 +14,7 @@ import '../../safety/presentation/report_block_sheet.dart';
 import '../../pvp/presentation/matches_screen.dart';
 import '../data/social_repository.dart';
 import '../domain/friend.dart';
+import 'albums_screen.dart';
 import 'visit_screen.dart';
 
 /// The social hub (roadmap p3c) — friends, a cosmetic showcase, and honest
@@ -226,12 +227,18 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
               'shared — and reporting is one tap away.',
         ),
         const SizedBox(height: 12),
-        const _ComingSoonCard(
-          icon: Icons.photo_library_outlined,
-          title: 'Shared photo albums',
-          body: 'Make a cozy album of your companions to share with a friend. '
-              'Only what you choose, only with friends you\'ve accepted, and '
-              'moderated — never a public feed.',
+        InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AlbumsScreen()),
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          child: const _ComingSoonCard(
+            icon: Icons.photo_library_outlined,
+            title: 'Shared photo albums',
+            body: 'Make a cozy album of your companions to share with a friend. '
+                'Only what you choose, only with friends you\'ve accepted, and '
+                'moderated — never a public feed.',
+          ),
         ),
         const SizedBox(height: 12),
         const _ComingSoonCard(

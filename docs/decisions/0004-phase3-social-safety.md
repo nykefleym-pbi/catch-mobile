@@ -138,6 +138,19 @@ age gate and a master switch that defaults off.**
   the policy could never match); it is dropped and `cats` is back to strictly
   owner-only, with visiting reads flowing through the RPC. A `VisitScreen` reached
   from each accepted friend's row renders it, still gated by `kSocialLive`.
+- **Shared photo albums** are built too (migration 0015): there are no real photos
+  to share (a camera image is deleted immediately after generation, ADR 0001), so
+  an "album" is a curated, captioned selection of the owner's OWN cat sprites.
+  Two owner-scoped tables (`albums`, `album_entries`) hold them; the
+  `album_entries` WITH CHECK proves the added cat is the caller's own, so a
+  modified client can't slip another user's cat id in. A friend reads only an
+  owner's *shared* albums through the guarded `list_friend_albums` RPC, which — as
+  the definer — re-checks the accepted friendship, block state, the viewer's age,
+  and the owner being an adult (sharing cats is adult-only, mirroring the
+  showcase), and returns only safe cat fields plus caption/title — **never
+  `location_label`**. The client (`AlbumsScreen` to manage, `FriendAlbumsScreen`
+  to view) is reached from the hub and from a visited friend, still gated by
+  `kSocialLive`; sharing is disabled in the UI for non-adults as well.
 - A **pre-launch legal/privacy review** (ADR 0003, R7) remains. The
   engineering-side input for it — a data-inventory + COPPA/GDPR-K/AADC control map
   with gaps flagged — is drafted in
