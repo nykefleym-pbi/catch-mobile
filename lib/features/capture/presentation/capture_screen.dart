@@ -269,17 +269,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Warm-background panes (generating polaroid, caught reveal) provide their
-    // own chrome, so the dark camera close button would look out of place.
-    final warmPane =
-        _stage == _Stage.caught || _stage == _Stage.generating;
+    // The live viewfinder carries its own close button in the bottom row (beside
+    // the shutter); warm-background panes (generating, caught reveal) provide
+    // their own chrome. So the top-left close only shows on the message/result
+    // panes, where there's no bottom control row to host it.
+    final hasOwnClose = _stage == _Stage.ready ||
+        _stage == _Stage.analyzing ||
+        _stage == _Stage.caught ||
+        _stage == _Stage.generating;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
           _buildBody(context),
-          if (!warmPane)
+          if (!hasOwnClose)
             SafeArea(
               child: Align(
                 alignment: Alignment.topLeft,
@@ -425,8 +429,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           ),
           Padding(
             padding: const EdgeInsets.only(top: 6, bottom: 18),
-            child: _ShutterButton(
-              onPressed: analyzing ? null : () => unawaited(_capture()),
+            // Shutter stays centred; the close button sits at the left, in a
+            // disc that echoes the shutter (matching the design).
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _ShutterButton(
+                  onPressed: analyzing ? null : () => unawaited(_capture()),
+                ),
+                Positioned(
+                  left: 28,
+                  child: _CloseShutterButton(onPressed: () => context.pop()),
+                ),
+              ],
             ),
           ),
         ],
@@ -1193,6 +1208,40 @@ class _ShutterButton extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The bottom-row close control — same disc treatment as the shutter (soft
+/// ring, gentle shadow) but calmer (cream fill, terracotta ✕) and a touch
+/// smaller, so it reads clearly as "leave" without competing with the shutter.
+class _CloseShutterButton extends StatelessWidget {
+  const _CloseShutterButton({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFFFFFDF8),
+          border: Border.all(color: AppTheme.apricot, width: 4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Icon(Icons.close, size: 26, color: AppTheme.terracotta),
         ),
       ),
     );

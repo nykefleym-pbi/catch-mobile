@@ -154,11 +154,20 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
               if (list.isEmpty) {
                 return RefreshIndicator(
                   onRefresh: widget.onRefresh,
-                  child: ListView(
-                    children: const [
-                      SizedBox(height: 40),
-                      _ScrapbookEmpty(),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
+                        // IntrinsicHeight so the Column's Spacers get a bounded
+                        // height and can vertically distribute the greeting +
+                        // paw trail across the viewport.
+                        child: const IntrinsicHeight(
+                          child: _ScrapbookEmpty(),
+                        ),
+                      ),
+                    ),
                   ),
                 );
               }
@@ -390,6 +399,8 @@ class _ScrapbookEmpty extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
       child: Column(
         children: [
+          // Center the greeting in the upper space…
+          const Spacer(flex: 3),
           Text(
             "Let's meet your first fur-iend",
             textAlign: TextAlign.center,
@@ -405,8 +416,10 @@ class _ScrapbookEmpty extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 20),
+          const Spacer(flex: 2),
+          // …then let the paw trail step down to the raised Capture button.
           const _PawTrail(),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -418,12 +431,15 @@ class _ScrapbookEmpty extends StatelessWidget {
 class _PawTrail extends StatelessWidget {
   const _PawTrail();
 
+  // A gentle alternating walk straight down the centre, growing as it nears
+  // the raised (centre) Capture button — so the trail reads as an arrow to it.
   static const _steps = [
-    (size: 16.0, dx: -30.0, angle: -0.5),
-    (size: 20.0, dx: -12.0, angle: -0.28),
-    (size: 26.0, dx: 8.0, angle: -0.12),
-    (size: 33.0, dx: 26.0, angle: 0.05),
-    (size: 42.0, dx: 44.0, angle: 0.2),
+    (size: 14.0, dx: -10.0, angle: -0.32),
+    (size: 18.0, dx: 8.0, angle: 0.18),
+    (size: 23.0, dx: -6.0, angle: -0.12),
+    (size: 30.0, dx: 5.0, angle: 0.08),
+    (size: 38.0, dx: -3.0, angle: -0.05),
+    (size: 46.0, dx: 0.0, angle: 0.0),
   ];
 
   @override
