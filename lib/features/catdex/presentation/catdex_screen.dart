@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -55,9 +57,9 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
 
   List<Cat> _apply(List<Cat> cats) {
     final q = _query.trim().toLowerCase();
-    final filtered = q.isEmpty
-        ? [...cats]
-        : [for (final c in cats) if (c.name.toLowerCase().contains(q)) c];
+    // Match name or any private tag, so tags act as a personal filter.
+    final filtered =
+        q.isEmpty ? [...cats] : [for (final c in cats) if (c.matchesQuery(q)) c];
     switch (_filter) {
       case _CatFilter.all:
         break;
@@ -316,6 +318,12 @@ class _CatCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () => context.push(AppRoutes.catDetailPath(cat.id), extra: cat),
+        // Long-press to organise with your own private tags.
+        onLongPress: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => _TagEditorSheet(cat: cat),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -463,6 +471,138 @@ class _PawTrail extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// A bottom sheet for editing a cat's **private** tags. Owner-only, never
+/// shared — a personal way to organise the CatDex (long-press a card to open).
+class _TagEditorSheet extends ConsumerStatefulWidget {
+  const _TagEditorSheet({required this.cat});
+
+  final Cat cat;
+
+  @override
+  ConsumerState<_TagEditorSheet> createState() => _TagEditorSheetState();
+}
+
+class _TagEditorSheetState extends ConsumerState<_TagEditorSheet> {
+  late final List<String> _tags = [...widget.cat.tags];
+  final TextEditingController _controller = TextEditingController();
+  bool _saving = false;
+
+  void _add() {
+    final t = _controller.text.trim();
+    _controller.clear();
+    if (t.isEmpty || _tags.contains(t)) return;
+    setState(() => _tags.add(t));
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(catsRepositoryProvider).setTags(widget.cat.id, _tags);
+      ref.invalidate(catsProvider);
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't save tags — please try again.")),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your tags for ${widget.cat.name}',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Private to you — a personal way to organise your CatDex.',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 14),
+              if (_tags.isEmpty)
+                Text(
+                  'No tags yet.',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final t in _tags)
+                      InputChip(
+                        label: Text(t),
+                        onDeleted: () => setState(() => _tags.remove(t)),
+                      ),
+                  ],
+                ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _add(),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Add a tag',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    onPressed: _add,
+                    icon: const Icon(Icons.add),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : () => unawaited(_save()),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

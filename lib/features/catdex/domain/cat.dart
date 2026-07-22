@@ -13,6 +13,7 @@ class Cat {
     this.lat,
     this.lng,
     this.collarId,
+    this.tags = const [],
   });
 
   final String id;
@@ -31,8 +32,22 @@ class Cat {
   final double? lat;
   final double? lng;
 
+  /// The player's own **private** free-text tags for this cat (from `cats.tags`).
+  /// Owner-only (inherits the `cats` RLS) and never shown to anyone else — a
+  /// personal way to organise the CatDex. Not a shared/social surface.
+  final List<String> tags;
+
   /// Whether this cat can be dropped on the Explore map.
   bool get hasLocation => lat != null && lng != null;
+
+  /// Matches a lower-cased CatDex search query against the name **or** any of the
+  /// player's private tags, so tags act as a personal filter.
+  bool matchesQuery(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    if (name.toLowerCase().contains(q)) return true;
+    return tags.any((t) => t.toLowerCase().contains(q));
+  }
 
   /// Human-friendly trait label (e.g. 'foodie' -> 'Foodie'). Falls back to a
   /// title-cased id for any trait added server-side we don't know about yet.
@@ -77,8 +92,21 @@ class Cat {
       lat: _toDouble(map['geo_lat']),
       lng: _toDouble(map['geo_lng']),
       collarId: map['cosmetic_collar'] as String?,
+      tags: _toStringList(map['tags']),
     );
   }
+}
+
+/// A Postgres `text[]` arrives as a [List]; coerce it to a clean `List<String>`,
+/// dropping blanks. Anything unexpected yields an empty list.
+List<String> _toStringList(dynamic value) {
+  if (value is List) {
+    return [
+      for (final item in value)
+        if (item is String && item.trim().isNotEmpty) item.trim(),
+    ];
+  }
+  return const [];
 }
 
 /// Numeric columns can arrive as [int], [double], or a string over the wire.

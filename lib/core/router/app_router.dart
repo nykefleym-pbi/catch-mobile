@@ -14,6 +14,7 @@ import '../../features/map/presentation/map_screen.dart';
 import '../../features/moderation/presentation/mod_console_screen.dart';
 import '../../features/onboarding/data/onboarding_repository.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/profile/presentation/impact_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/seasonal/presentation/seasonal_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -37,6 +38,7 @@ class AppRoutes {
   static const academy = '/academy';
   static const moderation = '/moderation';
   static const settings = '/settings';
+  static const impact = '/impact';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -121,6 +123,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      // "Impact so far" — an honest, own-data reflection of the player's
+      // kindness, pushed over the shell from the Profile settings card.
+      GoRoute(
+        path: AppRoutes.impact,
+        builder: (context, state) => const ImpactScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.

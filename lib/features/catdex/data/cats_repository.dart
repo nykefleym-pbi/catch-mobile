@@ -15,7 +15,7 @@ class CatsRepository {
     final rows = await client
         .from('cats')
         .select('id, name, sprite_url, trait_id, generation_meta, '
-            'geo_lat, geo_lng, discovered_at, cosmetic_collar')
+            'geo_lat, geo_lng, discovered_at, cosmetic_collar, tags')
         .order('discovered_at', ascending: false);
     return rows
         .map((row) => Cat.fromMap(Map<String, dynamic>.from(row)))
@@ -38,6 +38,19 @@ class CatsRepository {
         .from('cats')
         .update({'cosmetic_collar': collarId})
         .eq('id', catId);
+  }
+
+  /// Saves the player's private tags for a cat. RLS scopes the update to the
+  /// signed-in user's own rows; tags are owner-only and never shared. Blanks are
+  /// dropped and the list is de-duplicated (order preserved).
+  Future<void> setTags(String catId, List<String> tags) async {
+    final client = _ref.read(supabaseClientProvider);
+    final cleaned = <String>[];
+    for (final raw in tags) {
+      final t = raw.trim();
+      if (t.isNotEmpty && !cleaned.contains(t)) cleaned.add(t);
+    }
+    await client.from('cats').update({'tags': cleaned}).eq('id', catId);
   }
 
   /// Removes a caught cat. Used when the player taps "Retake photo" on the

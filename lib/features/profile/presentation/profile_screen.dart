@@ -639,6 +639,15 @@ class _SettingsCard extends StatelessWidget {
             subtitle: 'Manage camera & location access',
             onTap: () => openAppSettings(),
           ),
+          Divider(height: 1, color: theme.colorScheme.outline),
+          _SettingRow(
+            chipColor: AppTheme.peach,
+            icon: Icons.favorite_outline,
+            iconColor: AppTheme.terracotta,
+            title: 'Impact so far',
+            subtitle: 'The kindness you\'ve shared',
+            onTap: () => context.push(AppRoutes.impact),
+          ),
         ],
       ),
     );
