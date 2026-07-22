@@ -42,6 +42,17 @@ List<GentleReminder> buildGentleReminders({
   return out;
 }
 
+/// Calm fire times for while-away reminders: the next occurrence of [hour]
+/// (local wall-clock), then one per following day, up to [count]. Pure and
+/// testable; the caller converts each to an absolute instant for scheduling.
+/// Spacing them a day apart keeps reminders gentle, never a rapid drip.
+List<DateTime> nextReminderTimes(DateTime now, int count, {int hour = 18}) {
+  if (count <= 0) return const [];
+  var first = DateTime(now.year, now.month, now.day, hour);
+  if (!first.isAfter(now)) first = first.add(const Duration(days: 1));
+  return [for (var i = 0; i < count; i++) first.add(Duration(days: i))];
+}
+
 /// Calm, invitational copy per need. No urgency vocabulary by construction.
 String? _bodyFor(String name, String need) {
   switch (need) {

@@ -63,4 +63,23 @@ void main() {
       }
     }
   });
+
+  group('nextReminderTimes (while-away scheduling)', () {
+    test('before the hour: first is today at the hour, then daily', () {
+      final now = DateTime(2026, 7, 22, 10);
+      final times = nextReminderTimes(now, 2);
+      expect(times, [DateTime(2026, 7, 22, 18), DateTime(2026, 7, 23, 18)]);
+      expect(times.every((t) => t.isAfter(now)), isTrue);
+    });
+
+    test('past the hour: first rolls to tomorrow', () {
+      final now = DateTime(2026, 7, 22, 20);
+      final times = nextReminderTimes(now, 1);
+      expect(times, [DateTime(2026, 7, 23, 18)]);
+    });
+
+    test('count 0 yields no times', () {
+      expect(nextReminderTimes(DateTime.now(), 0), isEmpty);
+    });
+  });
 }

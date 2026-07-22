@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/notifications/presentation/notification_scheduler.dart';
 import 'features/settings/data/settings_repository.dart';
 import 'l10n/app_localizations.dart';
 
@@ -30,6 +31,11 @@ class CatchApp extends ConsumerWidget {
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: ref.watch(goRouterProvider),
+      // Below Localizations: keep while-away care reminders in sync with the
+      // opt-in choice on every app open/background.
+      builder: (context, child) => NotificationScheduler(
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

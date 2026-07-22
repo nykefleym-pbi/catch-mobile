@@ -57,6 +57,8 @@ dependencies:
   # only — no FCM, no push token, no server. Requires Android core-library
   # desugaring (patched into the generated Gradle by the APK workflow).
   flutter_local_notifications: ^18.0.1
+  # Absolute-instant scheduling for while-away reminders (zonedSchedule).
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

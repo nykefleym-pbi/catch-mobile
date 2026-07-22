@@ -58,6 +58,8 @@ class AppLocalizations {
   String get notificationsToggle => _t('notificationsToggle');
   String get notificationsSubtitle => _t('notificationsSubtitle');
   String get notificationsConfirmBody => _t('notificationsConfirmBody');
+  String get reminderVisitA => _t('reminderVisitA');
+  String get reminderVisitB => _t('reminderVisitB');
 
   /// The per-locale string tables. `en` is the template; keep every locale's
   /// key set identical (a test enforces this).
@@ -84,6 +86,10 @@ class AppLocalizations {
           'Occasional, calm nudges to care for your cats. Off by default.',
       'notificationsConfirmBody':
           'You\'ll get the occasional gentle nudge to care for your cats.',
+      'reminderVisitA':
+          'Your cats would love a little visit when you have a moment.',
+      'reminderVisitB':
+          'A cozy spot is waiting — come check in on your cats sometime.',
     },
     'fil': {
       'settingsTitle': 'Mga Setting',
@@ -109,6 +115,10 @@ class AppLocalizations {
           'alagaan ang iyong mga pusa. Naka-off bilang default.',
       'notificationsConfirmBody': 'Makakatanggap ka ng paminsan-minsang banayad '
           'na paalala para alagaan ang iyong mga pusa.',
+      'reminderVisitA': 'Gustong-gusto ng iyong mga pusa na dalawin mo sila '
+          'kapag may oras ka.',
+      'reminderVisitB': 'May maaliwalas na tulugan na naghihintay — dalawin ang '
+          'iyong mga pusa kapag nagkaroon ng pagkakataon.',
     },
   };
 

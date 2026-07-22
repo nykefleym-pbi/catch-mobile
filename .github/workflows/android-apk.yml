@@ -56,6 +56,8 @@ jobs:
               'android:name="android.permission.ACCESS_COARSE_LOCATION" />\n'
               '    <uses-permission '
               'android:name="android.permission.POST_NOTIFICATIONS" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
           )
           anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
           assert anchor in src, "manifest anchor not found"
