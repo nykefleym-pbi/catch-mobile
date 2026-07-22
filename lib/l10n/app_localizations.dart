@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// Hand-rolled localization scaffold (Tagalog-first) for Cat-ch.
