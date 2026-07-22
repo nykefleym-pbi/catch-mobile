@@ -141,7 +141,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           if (args is ({String catId, String catName})) {
             return DiaryScreen(catId: args.catId, catName: args.catName);
           }
-          return const Scaffold(body: Center(child: Text('Diary unavailable')));
+          // Defensive fallback (route is always pushed with extra in practice).
+          return const DiaryScreen(catId: '', catName: 'Cat');
         },
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
