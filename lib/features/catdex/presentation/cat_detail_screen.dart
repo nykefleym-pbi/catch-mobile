@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../academy/domain/care_lesson.dart';
+import '../../academy/domain/care_moment.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
 import '../../care/domain/treat.dart';
@@ -589,6 +591,59 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     ];
   }
 
+  /// A gentle, contextual welfare tip — surfaces the Academy lesson that speaks
+  /// to whatever need is currently low, right where the player is caring. Shows
+  /// nothing when every need is healthy (never nags).
+  Widget _careTip(CareState state) {
+    final id = lessonForCareMoment(
+      hunger: state.currentHunger,
+      happiness: state.currentHappiness,
+      hygiene: state.currentHygiene,
+      sleep: state.currentSleep,
+      play: state.currentPlay,
+    );
+    final CareLesson? lesson = id == null ? null : careLessonById(id);
+    if (lesson == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(lesson.emoji, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Care tip · ${lesson.title}',
+                    style: theme.textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    lesson.tips.first,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _careBody(CareState state) {
     final theme = Theme.of(context);
     return Column(
@@ -637,6 +692,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
           gradient: const [AppTheme.apricot, Color(0xFFE29254)],
         ),
         const SizedBox(height: 18),
+        _careTip(state),
         _BondHearts(
           filled: Bond.levelIndexFor(state.friendship) + 1,
           total: Bond.levelCount,
