@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../catdex/presentation/cat_sprite.dart';
 import '../../tutorial/presentation/first_run_tip.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
@@ -292,16 +293,7 @@ class _CatPin extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: shadow,
             ),
-            child: cat.spriteUrl == null
-                ? Icon(Icons.pets, color: theme.colorScheme.primary, size: 24)
-                : Image.network(
-                    cat.spriteUrl!,
-                    fit: BoxFit.contain,
-                    // Crisp nearest-neighbour scaling for pixel-art sprites.
-                    filterQuality: FilterQuality.none,
-                    errorBuilder: (_, __, ___) => Icon(Icons.pets,
-                        color: theme.colorScheme.primary, size: 24),
-                  ),
+            child: CatSprite(url: cat.spriteUrl, size: 44),
           ),
           // Little diamond pointer so the pin reads as "here".
           Transform.translate(

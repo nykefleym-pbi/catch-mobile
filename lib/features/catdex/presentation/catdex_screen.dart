@@ -11,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../tutorial/presentation/first_run_tip.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
+import 'cat_sprite.dart';
 
 /// The player's living collection of caught cats, backed by the `cats` table
 /// (docs/architecture/06-data-model.md). Styled from the "Cat-ch Mobile UI"
@@ -368,17 +369,7 @@ class _CatCard extends StatelessWidget {
                 height: 76,
                 decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
                 alignment: Alignment.center,
-                child: cat.spriteUrl == null
-                    ? Icon(Icons.pets, size: 34, color: theme.colorScheme.primary)
-                    : Image.network(
-                        cat.spriteUrl!,
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.none,
-                        errorBuilder: (_, __, ___) => Icon(Icons.pets,
-                            size: 34, color: theme.colorScheme.primary),
-                      ),
+                child: CatSprite(url: cat.spriteUrl, size: 56),
               ),
               const SizedBox(height: 10),
               Text(
