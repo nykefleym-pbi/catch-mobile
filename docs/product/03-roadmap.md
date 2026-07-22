@@ -95,6 +95,57 @@ user-to-user interaction.
 
 ---
 
+## Launch-readiness — experience, accessibility & localization (cross-phase)
+
+**Goal:** harden the already-shipped experience for a real first market (PH) —
+easier to understand, kinder to return to, reachable by more people. These run
+**alongside** Phase 2–3 work rather than after it; each preserves the pillars
+(cozy, cosmetic-only, welfare-wins, no dark patterns, privacy).
+
+1. **Localization — Tagalog (first locale).** Externalize all UI strings behind
+   an i18n layer (`intl` / `flutter gen-l10n`) and ship **Tagalog + English**.
+   Pulls the Phase 5 localization work forward for the launch market; the
+   scaffold makes later locales additive. No hardcoded copy in widgets.
+2. **Per-screen first-run tutorial.** Lightweight, contextual coach-marks the
+   first time each screen is opened (camera, map, CatDex, care, social). Always
+   skippable, never blocking, shown once, and **resettable in Settings** — a
+   guide, not a gate (no dark patterns). Honours reduce-motion and screen
+   readers.
+3. **Mobile notifications.** Gentle, **opt-in**, minor-aware (off by default in
+   reduced-data mode) reminders — a cat enjoying a sunbeam, a need easing — with
+   frequency caps and one-tap off. Never FOMO, streak-shame, or manipulative
+   timing.
+4. **Per-cat diary.** An owner-only timeline of little moments, notes, and where
+   each cat was met (coarse location only), deepening attachment. RLS
+   owner-scoped; no precise coordinates; not a shared surface.
+5. **Personal tagging.** Player-defined, **private** free-text tags on any cat,
+   used to filter/sort the CatDex (replaces fixed "themes" with the player's own
+   organisation). Owner-only — tags are never shown to other players, so no
+   moderation surface is introduced. (If tags ever become shareable, they must
+   route through the Trust & Safety substrate first.)
+6. **Text scaling & one-handed reachability.** Respect the OS text-size setting
+   with layouts that reflow (no clipping/overflow), and keep primary actions
+   within thumb reach on tall devices. Part of the broader accessibility pass
+   (with the existing reduce-motion support).
+7. **Academy lessons woven into actions.** Surface the relevant welfare lesson at
+   the moment it matters (e.g. a hydration tip when hygiene/thirst is low),
+   linking in-game care to real-world kindness. Welfare-wins, never nagging.
+8. **"Impact so far."** A gentle, **honest** surface of the good done. Pre-Phase-4
+   it shows only truthful, own-data kindness (cats met, lessons learned, care
+   given) — **never fabricated donation or "cats helped" numbers**. Real impact
+   figures stay gated on the Phase 4 legitimacy criteria.
+9. **Sprite consistency.** A post-generation normalisation pass (uniform
+   scale/padding, palette/level nudge) plus a curated fallback set, so generated
+   companions read as one cohesive art set despite provider variance. Quality/
+   perceived-polish, no gameplay effect.
+
+**Entry criteria:** none beyond the shipped Phase 1–3 surfaces; item 8's real
+impact figures wait on Phase 4, item 1 unblocks localized copy everywhere.
+**Unlocks:** a launch-ready, accessible, localized experience for the first
+market — better comprehension, kinder retention, wider reach.
+
+---
+
 ## Phase 4 — Impact & guardianship
 
 **Goal:** deliver on the mission — the reason Cat-ch exists.
@@ -123,7 +174,8 @@ is **gated on real-world legitimacy**, not just engineering.
 
 - Seasonal and charity events.
 - Mature moderation, trust & safety, and customer-support tooling.
-- Internationalization and localization.
+- Internationalization and localization — broadened beyond the launch-readiness
+  Tagalog-first locale (see cross-phase section) to additional markets.
 - Performance, cost, and reliability hardening for the generation pipeline and
   realtime features.
 
