@@ -6,6 +6,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../tutorial/presentation/first_run_tip.dart';
 import '../../catdex/data/cats_repository.dart';
 import '../../catdex/domain/cat.dart';
 import '../data/location_service.dart';
@@ -191,6 +193,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             left: 0,
             right: 0,
             child: const Center(child: _MapHeaderPill()),
+          ),
+          // First-run tip, tucked just under the header pill.
+          Positioned(
+            top: topPad + 56,
+            left: 0,
+            right: 0,
+            child: FirstRunTip(
+              screenId: 'map',
+              message: AppLocalizations.of(context).tipMap,
+            ),
           ),
           Positioned(
             left: 8,

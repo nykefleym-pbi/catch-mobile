@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../tutorial/presentation/first_run_tip.dart';
 import '../data/cats_repository.dart';
 import '../domain/cat.dart';
 
@@ -143,6 +145,10 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
           ),
         ),
         const SizedBox(height: 12),
+        FirstRunTip(
+          screenId: 'catdex',
+          message: AppLocalizations.of(context).tipCatdex,
+        ),
         Expanded(
           child: cats.when(
             loading: () =>

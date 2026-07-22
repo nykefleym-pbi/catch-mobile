@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../tutorial/data/tutorial_repository.dart';
 import '../data/settings_repository.dart';
 
 /// App Settings — the K1 preferences surface. For Slice A it hosts the language
@@ -62,6 +63,28 @@ class SettingsScreen extends ConsumerWidget {
                   height: 1.5,
                 ),
               ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              child: Text(
+                l.settingsTipsSection,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.lightbulb_outline),
+              title: Text(l.resetTips),
+              onTap: () async {
+                await ref.read(tutorialSeenProvider.notifier).resetAll();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l.resetTipsDone)),
+                );
+              },
             ),
           ],
         ),

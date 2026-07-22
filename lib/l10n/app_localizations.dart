@@ -46,6 +46,13 @@ class AppLocalizations {
   String get profileLanguageRowTitle => _t('profileLanguageRowTitle');
   String get profileLanguageRowSubtitle => _t('profileLanguageRowSubtitle');
 
+  // --- Tutorial tips ---------------------------------------------------------
+  String get settingsTipsSection => _t('settingsTipsSection');
+  String get resetTips => _t('resetTips');
+  String get resetTipsDone => _t('resetTipsDone');
+  String get tipCatdex => _t('tipCatdex');
+  String get tipMap => _t('tipMap');
+
   /// The per-locale string tables. `en` is the template; keep every locale's
   /// key set identical (a test enforces this).
   static const Map<String, Map<String, String>> _strings = {
@@ -59,6 +66,12 @@ class AppLocalizations {
           'Choose the language Cat-ch uses. This stays on your device.',
       'profileLanguageRowTitle': 'Language',
       'profileLanguageRowSubtitle': 'English & Tagalog',
+      'settingsTipsSection': 'Tips',
+      'resetTips': 'Show tips again',
+      'resetTipsDone': 'Tips will show again.',
+      'tipCatdex':
+          'Long-press a cat to add your own private tags. Tap to open its page.',
+      'tipMap': 'Cats you meet get pinned here. Tap a pin to visit that friend.',
     },
     'fil': {
       'settingsTitle': 'Mga Setting',
@@ -70,6 +83,14 @@ class AppLocalizations {
           'Piliin ang wikang gagamitin ng Cat-ch. Nananatili ito sa iyong device.',
       'profileLanguageRowTitle': 'Wika',
       'profileLanguageRowSubtitle': 'Ingles at Tagalog',
+      'settingsTipsSection': 'Mga Tip',
+      'resetTips': 'Ipakita muli ang mga tip',
+      'resetTipsDone': 'Muling lalabas ang mga tip.',
+      'tipCatdex':
+          'Pindutin nang matagal ang isang pusa para maglagay ng sarili mong '
+              'pribadong tag. I-tap para buksan ang pahina nito.',
+      'tipMap': 'Ang mga pusang nakikilala mo ay nakalagay dito. I-tap ang pin '
+          'para bisitahin ang kaibigang iyon.',
     },
   };
 
