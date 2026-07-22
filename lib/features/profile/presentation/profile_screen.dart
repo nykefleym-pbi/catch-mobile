@@ -7,6 +7,7 @@ import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/placeholder_scaffold.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../data/supabase/supabase_providers.dart';
 import '../../academy/data/academy_repository.dart';
 import '../../academy/domain/care_lesson.dart';
@@ -613,6 +614,15 @@ class _SettingsCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
+          _SettingRow(
+            chipColor: theme.colorScheme.surfaceContainerHigh,
+            icon: Icons.language,
+            iconColor: theme.colorScheme.onSurfaceVariant,
+            title: AppLocalizations.of(context).profileLanguageRowTitle,
+            subtitle: AppLocalizations.of(context).profileLanguageRowSubtitle,
+            onTap: () => context.push(AppRoutes.settings),
+          ),
+          Divider(height: 1, color: theme.colorScheme.outline),
           _SettingRow(
             chipColor: theme.colorScheme.primaryContainer,
             icon: Icons.shield_outlined,

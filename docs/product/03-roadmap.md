@@ -139,6 +139,11 @@ easier to understand, kinder to return to, reachable by more people. These run
    companions read as one cohesive art set despite provider variance. Quality/
    perceived-polish, no gameplay effect.
 
+The durable architecture choices for this section (Tagalog-first i18n scaffold,
+local-only/minor-off notifications, minor free-text kept on-device, own-data-honest
+impact, coarse-only diary location) are recorded in
+[ADR 0005](../decisions/0005-launch-readiness-accessibility-localization.md).
+
 **Entry criteria:** none beyond the shipped Phase 1–3 surfaces; item 8's real
 impact figures wait on Phase 4, item 1 unblocks localized copy everywhere.
 **Unlocks:** a launch-ready, accessible, localized experience for the first

@@ -10,6 +10,12 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Localization (Tagalog-first) — provides Material/Cupertino localized strings
+  # (GlobalMaterialLocalizations etc.) for the supported locales. App copy lives
+  # in lib/l10n/app_localizations.dart. SDK-pinned, so no version to manage.
+  flutter_localizations:
+    sdk: flutter
+
   # Typography — Fredoka (display) + Nunito Sans (body), per the Cat-ch design.
   google_fonts: ^6.2.1
 

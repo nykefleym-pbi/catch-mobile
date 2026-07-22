@@ -86,6 +86,16 @@
 
 ---
 
+## 8. Launch-readiness data-minimization (ADR 0005)
+
+| Item | Where | Owner |
+|------|-------|-------|
+| Confirm minor-authored free text (per-cat **diary notes** + **personal tags**) stays **on-device for minors**, server-synced only for adults — the ADR 0005 posture, verified against the minimization requirement | [ADR 0005](../decisions/0005-launch-readiness-accessibility-localization.md) · [0003](../decisions/0003-child-safety-strategy.md) | counsel |
+| Sign off **notification** copy + the **minor-off default** (local-only, opt-in) before enabling for real | ADR 0005 | counsel / decision |
+| Sign off **"Impact so far"** copy so it never implies real-world donation/"cats helped" numbers pre-Phase 4 | ADR 0005 · [09-monetization-and-impact.md](../09-monetization-and-impact.md) | decision |
+
+---
+
 ### Notes
 
 - Items marked **engineer** I can close now on request (hosting region, cascade

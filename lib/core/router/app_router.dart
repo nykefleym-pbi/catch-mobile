@@ -16,6 +16,7 @@ import '../../features/onboarding/data/onboarding_repository.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/seasonal/presentation/seasonal_screen.dart';
+import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/social/presentation/social_hub_screen.dart';
 
 /// Central route table. Kept flat and simple; the only redirect is the
@@ -35,6 +36,7 @@ class AppRoutes {
   static const showcase = '/showcase';
   static const academy = '/academy';
   static const moderation = '/moderation';
+  static const settings = '/settings';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -113,6 +115,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.moderation,
         builder: (context, state) => const ModConsoleScreen(),
+      ),
+      // App settings (language, and later launch-readiness prefs), pushed over
+      // the shell from the Profile settings card.
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (context, state) => const SettingsScreen(),
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.
