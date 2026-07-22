@@ -7,6 +7,7 @@ import '../../features/catdex/domain/cat.dart';
 import '../../features/catdex/presentation/cat_detail_screen.dart';
 import '../../features/catdex/presentation/catdex_screen.dart';
 import '../../features/catdex/presentation/showcase_screen.dart';
+import '../../features/diary/presentation/diary_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/academy/presentation/academy_screen.dart';
 import '../../features/auth/presentation/account_screen.dart';
@@ -39,6 +40,7 @@ class AppRoutes {
   static const moderation = '/moderation';
   static const settings = '/settings';
   static const impact = '/impact';
+  static const catDiary = '/diary';
 
   /// Path for a single cat's detail page. Pass the [Cat] via `extra`.
   static String catDetailPath(String id) => '$catDetail/$id';
@@ -129,6 +131,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.impact,
         builder: (context, state) => const ImpactScreen(),
+      ),
+      // A cat's private diary, pushed from the CatDex card long-press menu.
+      // The cat id + name arrive via `extra`.
+      GoRoute(
+        path: AppRoutes.catDiary,
+        builder: (context, state) {
+          final args = state.extra;
+          if (args is ({String catId, String catName})) {
+            return DiaryScreen(catId: args.catId, catName: args.catName);
+          }
+          return const Scaffold(body: Center(child: Text('Diary unavailable')));
+        },
       ),
       // A single cat's detail + care page, pushed over the shell. The Cat is
       // handed over via `extra` from the CatDex to avoid a refetch.

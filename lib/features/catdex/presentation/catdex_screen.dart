@@ -324,11 +324,39 @@ class _CatCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () => context.push(AppRoutes.catDetailPath(cat.id), extra: cat),
-        // Long-press to organise with your own private tags.
+        // Long-press for the per-cat actions: private tags + the diary.
         onLongPress: () => showModalBottomSheet<void>(
           context: context,
-          isScrollControlled: true,
-          builder: (_) => _TagEditorSheet(cat: cat),
+          builder: (sheetCtx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.sell_outlined),
+                  title: const Text('Edit tags'),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => _TagEditorSheet(cat: cat),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_stories_outlined),
+                  title: const Text('Open diary'),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    context.push(
+                      AppRoutes.catDiary,
+                      extra: (catId: cat.id, catName: cat.name),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
