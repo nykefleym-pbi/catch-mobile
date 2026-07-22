@@ -53,6 +53,12 @@ class AppLocalizations {
   String get tipCatdex => _t('tipCatdex');
   String get tipMap => _t('tipMap');
 
+  // --- Notifications ---------------------------------------------------------
+  String get settingsNotificationsSection => _t('settingsNotificationsSection');
+  String get notificationsToggle => _t('notificationsToggle');
+  String get notificationsSubtitle => _t('notificationsSubtitle');
+  String get notificationsConfirmBody => _t('notificationsConfirmBody');
+
   /// The per-locale string tables. `en` is the template; keep every locale's
   /// key set identical (a test enforces this).
   static const Map<String, Map<String, String>> _strings = {
@@ -72,6 +78,12 @@ class AppLocalizations {
       'tipCatdex':
           'Long-press a cat to add your own private tags. Tap to open its page.',
       'tipMap': 'Cats you meet get pinned here. Tap a pin to visit that friend.',
+      'settingsNotificationsSection': 'Notifications',
+      'notificationsToggle': 'Gentle care reminders',
+      'notificationsSubtitle':
+          'Occasional, calm nudges to care for your cats. Off by default.',
+      'notificationsConfirmBody':
+          'You\'ll get the occasional gentle nudge to care for your cats.',
     },
     'fil': {
       'settingsTitle': 'Mga Setting',
@@ -91,6 +103,12 @@ class AppLocalizations {
               'pribadong tag. I-tap para buksan ang pahina nito.',
       'tipMap': 'Ang mga pusang nakikilala mo ay nakalagay dito. I-tap ang pin '
           'para bisitahin ang kaibigang iyon.',
+      'settingsNotificationsSection': 'Mga Abiso',
+      'notificationsToggle': 'Banayad na paalala sa pag-aalaga',
+      'notificationsSubtitle': 'Paminsan-minsang banayad na paalala para '
+          'alagaan ang iyong mga pusa. Naka-off bilang default.',
+      'notificationsConfirmBody': 'Makakatanggap ka ng paminsan-minsang banayad '
+          'na paalala para alagaan ang iyong mga pusa.',
     },
   };
 

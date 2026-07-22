@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../notifications/data/notification_prefs.dart';
+import '../../notifications/data/notification_service.dart';
+import '../../notifications/domain/reminder_policy.dart';
+import '../../safety/data/age_gate.dart';
 import '../../tutorial/data/tutorial_repository.dart';
 import '../data/settings_repository.dart';
 
@@ -85,6 +89,46 @@ class SettingsScreen extends ConsumerWidget {
                   SnackBar(content: Text(l.resetTipsDone)),
                 );
               },
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              child: Text(
+                l.settingsNotificationsSection,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            // Opt-in, off by default; disabled entirely for minors (they can
+            // never enable — enforced in the provider too).
+            SwitchListTile(
+              value: ref.watch(notificationsEnabledProvider),
+              title: Text(l.notificationsToggle),
+              subtitle: Text(l.notificationsSubtitle),
+              onChanged: ref.watch(ageBracketProvider).isMinor
+                  ? null
+                  : (enabled) async {
+                      final notifier =
+                          ref.read(notificationsEnabledProvider.notifier);
+                      final service = ref.read(notificationServiceProvider);
+                      if (enabled) {
+                        final granted = await service.requestPermission();
+                        if (!granted) return;
+                        await notifier.setEnabled(true);
+                        await service.showReminders([
+                          GentleReminder(
+                            catName: '',
+                            needKey: '',
+                            body: l.notificationsConfirmBody,
+                          ),
+                        ]);
+                      } else {
+                        await notifier.setEnabled(false);
+                        await service.cancelAll();
+                      }
+                    },
             ),
           ],
         ),

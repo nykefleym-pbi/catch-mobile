@@ -53,6 +53,11 @@ dependencies:
   # Remembering that the welcome + consent flow has been completed (first launch).
   shared_preferences: ^2.3.2
 
+  # Gentle, opt-in, on-device care reminders (ADR 0005). Local notifications
+  # only — no FCM, no push token, no server. Requires Android core-library
+  # desugaring (patched into the generated Gradle by the APK workflow).
+  flutter_local_notifications: ^18.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
