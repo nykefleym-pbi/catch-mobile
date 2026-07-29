@@ -130,6 +130,24 @@ class CareController extends StateNotifier<AsyncValue<CareState>> {
   Future<void> groom() =>
       _apply((c) => c.groomed(), AnalyticsEventName.careGroomed);
 
+  /// Commit a hands-on feeding session: hunger reached [fullness], bond earned.
+  Future<void> commitFeed(int fullness, int bondGain) => _apply(
+        (c) => c.afterFeedSession(fullness, bondGain),
+        AnalyticsEventName.careFed,
+      );
+
+  /// Commit a play session: happiness reached [fullness], bond earned.
+  Future<void> commitPlay(int fullness, int bondGain) => _apply(
+        (c) => c.afterPlaySession(fullness, bondGain),
+        AnalyticsEventName.carePlayed,
+      );
+
+  /// Commit a grooming session: hygiene reached [fullness], bond earned.
+  Future<void> commitGroom(int fullness, int bondGain) => _apply(
+        (c) => c.afterGroomSession(fullness, bondGain),
+        AnalyticsEventName.careGroomed,
+      );
+
   Future<void> _apply(
     CareState Function(CareState) transform,
     AnalyticsEventName event,

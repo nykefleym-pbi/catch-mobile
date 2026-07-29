@@ -318,4 +318,41 @@ class CareState {
             .clamp(0, 100),
         friendship: friendship + 1 + _effects.groomBondBonus,
       );
+
+  // --- Interactive care sessions (drag mini-games) -----------------------
+  // Each session raises its own meter to [fullness] and deepens the bond by
+  // [bondGain]. Feeding, play, and grooming also nudge *other* needs — a
+  // realistic little trade-off the player manages — but every value is floored
+  // at [_floor], so no session can ever leave a cat genuinely worse off
+  // (welfare-wins; the trade-offs are gentle, never punitive).
+
+  /// A hands-on feeding: fills hunger to [fullness], lifts spirits a touch, and
+  /// costs a little hygiene (messy!) and sleep (a full tummy after activity).
+  CareState afterFeedSession(int fullness, int bondGain) => _snapshot(
+        hunger: fullness.clamp(0, 100),
+        happiness: (currentHappiness + 6 + _effects.feedHappinessBonus)
+            .clamp(0, 100),
+        hygiene: (currentHygiene - 8).clamp(_floor, 100),
+        sleep: (currentSleep - 6).clamp(_floor, 100),
+        friendship: friendship + bondGain + _effects.feedBondBonus,
+      );
+
+  /// A play session: raises happiness to [fullness], tops up the play need, and
+  /// tires the cat out a touch (sleep).
+  CareState afterPlaySession(int fullness, int bondGain) => _snapshot(
+        happiness: fullness.clamp(0, 100),
+        play: 100,
+        sleep: (currentSleep - 10).clamp(_floor, 100),
+        friendship: friendship + bondGain + _effects.playBondBonus,
+      );
+
+  /// A grooming session: raises hygiene to [fullness], adds a little happiness,
+  /// and costs a little sleep (all that pampering is relaxing but tiring).
+  CareState afterGroomSession(int fullness, int bondGain) => _snapshot(
+        hygiene: fullness.clamp(0, 100),
+        happiness: (currentHappiness + 4 + _effects.groomHappinessBonus)
+            .clamp(0, 100),
+        sleep: (currentSleep - 6).clamp(_floor, 100),
+        friendship: friendship + bondGain + _effects.groomBondBonus,
+      );
 }

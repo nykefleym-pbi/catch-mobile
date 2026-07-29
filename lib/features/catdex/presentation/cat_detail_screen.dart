@@ -4,18 +4,18 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../academy/domain/care_lesson.dart';
 import '../../academy/domain/care_moment.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
+import '../../care/domain/groom_tool.dart';
+import '../../care/domain/toy.dart';
 import '../../care/domain/treat.dart';
-import '../../care/presentation/spa_screen.dart';
+import '../../care/presentation/care_activity_screen.dart';
 import '../../nook/presentation/nook_screen.dart';
 import '../../pvp/domain/cat_stats.dart';
 import '../../pvp/presentation/practice_ground_screen.dart';
@@ -106,52 +106,90 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
     super.dispose();
   }
 
-  Future<void> _openTreatPicker() async {
-    final treat = await showModalBottomSheet<Treat>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => const _TreatSheet(),
-    );
-    if (treat == null) return;
-    await _feed(treat);
-  }
-
-  Future<void> _feed(Treat treat) {
-    // The 'foodie' trait "gains extra affection from feeding" (0002 seed).
-    final foodie = widget.cat.traitId == 'foodie';
-    final bond = treat.bond + (foodie ? 1 : 0);
-    return _runCare(
-      floater: treat.emoji,
-      action: () => ref.read(careControllerProvider(widget.catId).notifier).feed(
-            bondGain: bond,
-            happinessGain: treat.happiness,
-          ),
-      message: foodie
-          ? '$_name devoured the ${treat.label}! ${treat.emoji}'
-          : '$_name enjoyed ${treat.label} ${treat.emoji}',
-    );
-  }
-
-  Future<void> _play() => _runCare(
-        floater: '🧶',
-        action: () =>
-            ref.read(careControllerProvider(widget.catId).notifier).play(),
-        message: '$_name had fun 🧶',
-      );
-
-  /// Opens the tactile "Spa day" grooming screen. It persists a gentle groom
-  /// (hygiene + a little bond) on the first pampering, and shares this cat's
-  /// care provider, so the meters here update when we return.
-  void _openSpa() {
-    Navigator.of(context).push(
+  /// Opens the tactile drag-to-care mini-game for [kind] (Feed / Play / Groom),
+  /// seeded with the current need value so the meter starts where the cat is.
+  /// The mini-game persists the session itself; on return we celebrate a bond
+  /// level-up if one happened (the meters here share this cat's care provider).
+  Future<void> _openActivity(CareActivityKind kind) async {
+    final provider = careControllerProvider(widget.catId);
+    final state = ref.read(provider).valueOrNull;
+    final start = switch (kind) {
+      CareActivityKind.feed => state?.currentHunger ?? 60,
+      CareActivityKind.play => state?.currentHappiness ?? 60,
+      CareActivityKind.groom => state?.currentHygiene ?? 60,
+    };
+    final before = state?.friendship ?? 0;
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SpaScreen(
+        builder: (_) => CareActivityScreen(
+          kind: kind,
           catId: widget.catId,
           name: _name,
           spriteUrl: widget.cat.spriteUrl,
+          items: _itemsFor(kind),
+          startValue: start,
         ),
       ),
     );
+    if (!mounted) return;
+    final after = ref.read(provider).valueOrNull?.friendship ?? before;
+    if (Bond.levelIndexFor(after) > Bond.levelIndexFor(before)) {
+      unawaited(_bounce.forward(from: 0));
+      _spawnFloater('💛');
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('You and $_name are now ${Bond.labelFor(after)}! 💛'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    }
+  }
+
+  /// Maps a care catalogue to the draggable items the mini-game renders.
+  List<CareActivityItem> _itemsFor(CareActivityKind kind) {
+    switch (kind) {
+      case CareActivityKind.feed:
+        return [
+          for (final t in kTreats)
+            CareActivityItem(
+              id: t.id,
+              label: t.label,
+              asset: t.asset ?? '',
+              particle: t.emoji,
+              particleRises: false, // food crumbs fall
+              gain: 12 + t.bond * 3,
+              caption: '$_name nibbles the ${t.label.toLowerCase()} 😋',
+            ),
+        ];
+      case CareActivityKind.play:
+        return [
+          for (final toy in kToys)
+            CareActivityItem(
+              id: toy.id,
+              label: toy.label,
+              asset: toy.asset,
+              particle: toy.emoji,
+              particleRises: true, // joy floats up
+              gain: toy.happiness,
+              caption: '$_name loves the ${toy.label.toLowerCase()}!',
+            ),
+        ];
+      case CareActivityKind.groom:
+        return [
+          for (final tool in kGroomTools)
+            CareActivityItem(
+              id: tool.id,
+              label: tool.label,
+              asset: tool.asset,
+              particle: tool.effect.glyph,
+              particleRises: tool.effect.rises,
+              gain: tool.hygiene,
+              caption: tool.caption,
+            ),
+        ];
+    }
   }
 
   /// Opens this cat's decorated nook (home decoration).
@@ -200,44 +238,6 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         ..showSnackBar(
           const SnackBar(content: Text("Couldn't save the collar — try again.")),
         );
-    }
-  }
-
-  /// Shared care flow: haptic + sprite bounce + floating emoji, run the action,
-  /// then a snackbar — celebrating a bond level-up when one happens.
-  Future<void> _runCare({
-    required String floater,
-    required Future<void> Function() action,
-    required String message,
-  }) async {
-    final provider = careControllerProvider(widget.catId);
-    final before = ref.read(provider).valueOrNull?.friendship ?? 0;
-
-    unawaited(HapticFeedback.lightImpact());
-    unawaited(_bounce.forward(from: 0));
-    _spawnFloater(floater);
-
-    await action();
-    if (!mounted) return;
-
-    final after = ref.read(provider).valueOrNull?.friendship ?? before;
-    final leveledUp = Bond.levelIndexFor(after) > Bond.levelIndexFor(before);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    if (leveledUp) {
-      _spawnFloater('💛');
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'You and $_name are now ${Bond.labelFor(after)}! 💛',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } else {
-      messenger.showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
-      );
     }
   }
 
@@ -704,14 +704,14 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
           children: [
             Expanded(
               child: FilledButton(
-                onPressed: _openTreatPicker,
+                onPressed: () => _openActivity(CareActivityKind.feed),
                 child: const Text('Feed'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton.tonal(
-                onPressed: _play,
+                onPressed: () => _openActivity(CareActivityKind.play),
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.secondaryContainer,
                   foregroundColor: theme.colorScheme.onSecondaryContainer,
@@ -722,7 +722,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton.tonal(
-                onPressed: _openSpa,
+                onPressed: () => _openActivity(CareActivityKind.groom),
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.tertiaryContainer,
                   foregroundColor: theme.colorScheme.onTertiaryContainer,
@@ -1041,43 +1041,6 @@ class _HeroSprite extends StatelessWidget {
           );
     // A gentle, personality-flavoured idle breathe (respects reduce-motion).
     return CatIdleSprite(traitId: cat.traitId, child: sprite);
-  }
-}
-
-/// The treat menu shown when the player taps Feed. Tapping a treat pops the
-/// sheet with the chosen [Treat].
-class _TreatSheet extends StatelessWidget {
-  const _TreatSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
-            child: Text('Pick a treat', style: theme.textTheme.titleLarge),
-          ),
-          for (final treat in kTreats)
-            ListTile(
-              leading: treat.asset != null
-                  ? AppAssetImage(treat.asset!, size: 40)
-                  : Text(treat.emoji, style: const TextStyle(fontSize: 28)),
-              title: Text(treat.label,
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w500)),
-              subtitle: Text('+${treat.bond} bond'),
-              trailing: Icon(Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant),
-              onTap: () => Navigator.of(context).pop(treat),
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
   }
 }
 

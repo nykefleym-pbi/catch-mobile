@@ -118,6 +118,16 @@ class AppAssets {
   static const soap = '$_items/Soap.webp';
   static const nailClipper = '$_items/Nail Clipper.webp';
   static const toothbrush = '$_items/Toothbrush.webp';
+  static const nailFile = '$_items/Nail File.webp';
+  static const shaver = '$_items/Shaver.webp';
+  static const steamedCarrotAndSquash =
+      '$_items/Steamed Carrot and Squash.webp';
+  static const egg = '$_items/Egg.webp';
+  static const featherTeaser = '$_items/Feather Teaser.webp';
+  static const toyMouse = '$_items/Toy Mouse.webp';
+  static const laserPointer = '$_items/Laser Pointer.webp';
+  static const plushie = '$_items/Plushie.webp';
+  static const discardedBox = '$_items/Discarded Box.webp';
 }
 
 /// Renders an [AppAssets] path at a sensible decode resolution. Passing [size]
