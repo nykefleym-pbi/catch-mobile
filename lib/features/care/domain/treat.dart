@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/assets/app_assets.dart';
@@ -14,6 +16,8 @@ class Treat {
     required this.emoji,
     required this.bond,
     required this.happiness,
+    required this.color,
+    this.liquid = false,
     this.asset,
   });
 
@@ -30,6 +34,14 @@ class Treat {
 
   /// Happiness restored (clamped to 100 by the care state).
   final int happiness;
+
+  /// The food's dominant colour — used to tint the bits that fall while it's
+  /// being eaten (drops for a liquid, crumbs for a solid).
+  final Color color;
+
+  /// Whether this food is a liquid (milk) — falling bits are round drops rather
+  /// than crumbly semicircles.
+  final bool liquid;
 }
 
 /// The v1 treat menu, ordered gentlest → most special.
@@ -40,6 +52,8 @@ const List<Treat> kTreats = [
     emoji: '🥛',
     bond: 1,
     happiness: 3,
+    color: Color(0xFFF3EFE6),
+    liquid: true,
     asset: AppAssets.milk,
   ),
   Treat(
@@ -48,6 +62,7 @@ const List<Treat> kTreats = [
     emoji: '🍗',
     bond: 1,
     happiness: 4,
+    color: Color(0xFFC98A4B),
     asset: AppAssets.kibbles,
   ),
   Treat(
@@ -56,6 +71,7 @@ const List<Treat> kTreats = [
     emoji: '🐟',
     bond: 2,
     happiness: 5,
+    color: Color(0xFFEBA9A0),
     asset: AppAssets.fish,
   ),
   Treat(
@@ -64,6 +80,7 @@ const List<Treat> kTreats = [
     emoji: '🍣',
     bond: 2,
     happiness: 7,
+    color: Color(0xFFD98A5B),
     asset: AppAssets.cannedFood,
   ),
   Treat(
@@ -72,6 +89,7 @@ const List<Treat> kTreats = [
     emoji: '🌿',
     bond: 1,
     happiness: 9,
+    color: Color(0xFF9BBE6A),
     asset: AppAssets.catnip,
   ),
   Treat(
@@ -80,6 +98,7 @@ const List<Treat> kTreats = [
     emoji: '🌱',
     bond: 1,
     happiness: 6,
+    color: Color(0xFF8FB56A),
     asset: AppAssets.catGrass,
   ),
   Treat(
@@ -88,6 +107,7 @@ const List<Treat> kTreats = [
     emoji: '🥕',
     bond: 2,
     happiness: 6,
+    color: Color(0xFFE39A4A),
     asset: AppAssets.steamedCarrotAndSquash,
   ),
   Treat(
@@ -96,6 +116,7 @@ const List<Treat> kTreats = [
     emoji: '🥚',
     bond: 2,
     happiness: 5,
+    color: Color(0xFFF2D9A0),
     asset: AppAssets.egg,
   ),
   Treat(
@@ -104,6 +125,7 @@ const List<Treat> kTreats = [
     emoji: '⭐',
     bond: 3,
     happiness: 6,
+    color: Color(0xFFCDA349),
     asset: AppAssets.treats,
   ),
 ];

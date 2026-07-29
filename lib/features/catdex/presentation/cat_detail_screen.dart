@@ -157,9 +157,9 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               id: t.id,
               label: t.label,
               asset: t.asset ?? '',
-              particle: t.emoji,
-              particleRises: false, // food crumbs fall
               gain: 12 + t.bond * 3,
+              color: t.color,
+              liquid: t.liquid,
               caption: '$_name nibbles the ${t.label.toLowerCase()} 😋',
             ),
         ];
@@ -170,8 +170,6 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               id: toy.id,
               label: toy.label,
               asset: toy.asset,
-              particle: toy.emoji,
-              particleRises: true, // joy floats up
               gain: toy.happiness,
               caption: '$_name loves the ${toy.label.toLowerCase()}!',
             ),
@@ -183,8 +181,6 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
               id: tool.id,
               label: tool.label,
               asset: tool.asset,
-              particle: tool.effect.glyph,
-              particleRises: tool.effect.rises,
               gain: tool.hygiene,
               caption: tool.caption,
             ),
@@ -659,7 +655,7 @@ class _CompanionBodyState extends ConsumerState<_CompanionBody>
         ),
         const SizedBox(height: 16),
         _Meter(
-          label: 'Hunger',
+          label: 'Fullness',
           status: _hungerStatus(state.currentHunger),
           value: state.currentHunger / 100,
           gradient: const [AppTheme.apricot, AppTheme.terracotta],

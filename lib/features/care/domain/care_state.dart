@@ -326,32 +326,34 @@ class CareState {
   // at [_floor], so no session can ever leave a cat genuinely worse off
   // (welfare-wins; the trade-offs are gentle, never punitive).
 
-  /// A hands-on feeding: fills hunger to [fullness], lifts spirits a touch, and
-  /// costs a little hygiene (messy!) and sleep (a full tummy after activity).
+  /// A hands-on feeding: fills fullness (hunger) to [fullness], and costs a
+  /// little hygiene (messy!) and rest (a full tummy makes for a sleepier cat —
+  /// sleepiness up, i.e. the rest need drifts down).
   CareState afterFeedSession(int fullness, int bondGain) => _snapshot(
         hunger: fullness.clamp(0, 100),
-        happiness: (currentHappiness + 6 + _effects.feedHappinessBonus)
-            .clamp(0, 100),
-        hygiene: (currentHygiene - 8).clamp(_floor, 100),
-        sleep: (currentSleep - 6).clamp(_floor, 100),
+        hygiene: (currentHygiene - 10).clamp(_floor, 100),
+        sleep: (currentSleep - 8).clamp(_floor, 100),
         friendship: friendship + bondGain + _effects.feedBondBonus,
       );
 
-  /// A play session: raises happiness to [fullness], tops up the play need, and
-  /// tires the cat out a touch (sleep).
+  /// A play session: raises happiness to [fullness] and tops up the play need,
+  /// but works up an appetite (fullness down) and a mess (hygiene down), and
+  /// tires the cat out (sleepiness up).
   CareState afterPlaySession(int fullness, int bondGain) => _snapshot(
         happiness: fullness.clamp(0, 100),
         play: 100,
+        hunger: (currentHunger - 8).clamp(_floor, 100),
+        hygiene: (currentHygiene - 6).clamp(_floor, 100),
         sleep: (currentSleep - 10).clamp(_floor, 100),
         friendship: friendship + bondGain + _effects.playBondBonus,
       );
 
-  /// A grooming session: raises hygiene to [fullness], adds a little happiness,
-  /// and costs a little sleep (all that pampering is relaxing but tiring).
+  /// A grooming session: raises hygiene (freshness) to [fullness]. Most cats
+  /// only tolerate a bath, so happiness dips a little, and the fuss is tiring
+  /// (sleepiness up).
   CareState afterGroomSession(int fullness, int bondGain) => _snapshot(
         hygiene: fullness.clamp(0, 100),
-        happiness: (currentHappiness + 4 + _effects.groomHappinessBonus)
-            .clamp(0, 100),
+        happiness: (currentHappiness - 6).clamp(_floor, 100),
         sleep: (currentSleep - 6).clamp(_floor, 100),
         friendship: friendship + bondGain + _effects.groomBondBonus,
       );
