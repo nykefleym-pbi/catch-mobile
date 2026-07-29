@@ -152,6 +152,40 @@ void main() {
     });
   });
 
+  group('CareState.lowestNeed', () {
+    test('a content cat has no lowest need (never nags)', () {
+      expect(CareState.initial('cat-1').lowestNeed(), isNull);
+    });
+
+    test('picks the single most-wanting need below the threshold', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 100,
+        happiness: 100,
+        hygiene: 20, // the lowest
+        play: 60,
+        sleep: 100,
+        mood: 'content',
+        lastUpdated: DateTime.now(),
+      );
+      expect(care.lowestNeed(), 'hygiene');
+    });
+
+    test('ignores sleep — it self-recovers, so it never drives a reminder', () {
+      final care = CareState(
+        catId: 'cat-1',
+        hunger: 100,
+        happiness: 100,
+        hygiene: 100,
+        play: 100,
+        sleep: 10,
+        mood: 'content',
+        lastUpdated: DateTime.now(),
+      );
+      expect(care.lowestNeed(), isNull);
+    });
+  });
+
   group('Bond', () {
     test('labels climb with friendship points', () {
       expect(Bond.labelFor(0), 'New Friend');

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../care/data/care_repository.dart';
 import '../../safety/data/age_gate.dart';
 import '../data/notification_prefs.dart';
 import '../data/notification_service.dart';
@@ -59,10 +60,41 @@ class _NotificationSchedulerState extends ConsumerState<NotificationScheduler>
     }
     // Read localized copy before any await (context stays valid here).
     final l = AppLocalizations.of(context);
-    final reminders = [
-      GentleReminder(catName: '', needKey: '', body: l.reminderVisitA),
-      GentleReminder(catName: '', needKey: '', body: l.reminderVisitB),
-    ];
+    final strings = ReminderStrings(
+      hunger: l.reminderNeedHunger,
+      play: l.reminderNeedPlay,
+      happiness: l.reminderNeedHappiness,
+      hygiene: l.reminderNeedHygiene,
+      sleep: l.reminderNeedSleep,
+    );
+
+    // Prefer per-need copy that names the actual cat + what it would enjoy.
+    // Best-effort: any read failure falls through to the generic visit nudge so
+    // a transient error never silently drops reminders.
+    var reminders = const <GentleReminder>[];
+    try {
+      final needs = await ref.read(careRepositoryProvider).fetchCatNeeds();
+      reminders = buildGentleReminders(
+        enabled: true,
+        isMinor: false,
+        cats: [
+          for (final n in needs)
+            CatNeedSnapshot(catName: n.name, lowNeed: n.lowNeed),
+        ],
+        strings: strings,
+      );
+    } catch (_) {
+      // fall through to the generic nudge below
+    }
+
+    // No specific need (all content, no cats yet, or a read error): a calm,
+    // occasional visit nudge — never per-need nagging.
+    if (reminders.isEmpty) {
+      reminders = [
+        GentleReminder(catName: '', needKey: '', body: l.reminderVisitA),
+        GentleReminder(catName: '', needKey: '', body: l.reminderVisitB),
+      ];
+    }
     await service.scheduleGentleReminders(reminders);
   }
 

@@ -55,6 +55,37 @@ class CareRepository {
         friendship: friendship, traitId: catRow['trait_id'] as String?);
   }
 
+  /// A gentle, best-effort snapshot of every cat's name + single lowest need,
+  /// for the while-away care reminders. One query embeds each cat's `care_state`
+  /// row; the drift-since-last-cared value is computed client-side via
+  /// [CareState], so the copy can name the actual need. RLS scopes the read to
+  /// the signed-in user. Returns records (not a reminder type) so the care layer
+  /// stays independent of the notifications feature.
+  Future<List<({String name, String? lowNeed})>> fetchCatNeeds(
+      {int threshold = 45}) async {
+    final client = _ref.read(supabaseClientProvider);
+    final rows = await client.from('cats').select(
+        'name, trait_id, care_state(hunger, happiness, hygiene, sleep, play, '
+        'mood, last_updated)');
+    final out = <({String name, String? lowNeed})>[];
+    for (final row in rows) {
+      final name = (row['name'] as String?)?.trim() ?? '';
+      if (name.isEmpty) continue;
+      final raw = row['care_state'];
+      final Map<String, dynamic>? careMap = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : (raw is List && raw.isNotEmpty
+              ? Map<String, dynamic>.from(raw.first as Map)
+              : null);
+      final traitId = row['trait_id'] as String?;
+      final care = careMap == null
+          ? CareState.initial('', traitId: traitId)
+          : CareState.fromMap({...careMap, 'cat_id': ''}, traitId: traitId);
+      out.add((name: name, lowNeed: care.lowestNeed(threshold: threshold)));
+    }
+    return out;
+  }
+
   Future<({int friendship, String? traitId})> _fetchCatMeta(
       String catId) async {
     final client = _ref.read(supabaseClientProvider);

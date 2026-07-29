@@ -61,6 +61,15 @@ class AppLocalizations {
   String get reminderVisitA => _t('reminderVisitA');
   String get reminderVisitB => _t('reminderVisitB');
 
+  // Per-need reminder templates. `{name}` is replaced with the cat's name; the
+  // notifications layer builds a ReminderStrings from these so the while-away
+  // nudge can name the actual need. Copy stays calm — never urgency wording.
+  String get reminderNeedHunger => _t('reminderNeedHunger');
+  String get reminderNeedPlay => _t('reminderNeedPlay');
+  String get reminderNeedHappiness => _t('reminderNeedHappiness');
+  String get reminderNeedHygiene => _t('reminderNeedHygiene');
+  String get reminderNeedSleep => _t('reminderNeedSleep');
+
   /// The per-locale string tables. `en` is the template; keep every locale's
   /// key set identical (a test enforces this).
   static const Map<String, Map<String, String>> _strings = {
@@ -90,6 +99,14 @@ class AppLocalizations {
           'Your cats would love a little visit when you have a moment.',
       'reminderVisitB':
           'A cozy spot is waiting — come check in on your cats sometime.',
+      'reminderNeedHunger':
+          '{name} would love a little snack whenever you have a moment.',
+      'reminderNeedPlay': '{name} is in the mood to play when you are.',
+      'reminderNeedHappiness':
+          '{name} would enjoy a little company sometime today.',
+      'reminderNeedHygiene':
+          '{name} could use a gentle spa day when it suits you.',
+      'reminderNeedSleep': '{name} is finding a cozy spot to rest.',
     },
     'fil': {
       'settingsTitle': 'Mga Setting',
@@ -119,6 +136,14 @@ class AppLocalizations {
           'kapag may oras ka.',
       'reminderVisitB': 'May maaliwalas na tulugan na naghihintay — dalawin ang '
           'iyong mga pusa kapag nagkaroon ng pagkakataon.',
+      'reminderNeedHunger': 'Gustong-gusto ni {name} ng kaunting meryenda kapag '
+          'may oras ka.',
+      'reminderNeedPlay': 'Gustong maglaro ni {name} kapag handa ka na.',
+      'reminderNeedHappiness':
+          'Ikatutuwa ni {name} ang kaunting kasama sa araw na ito.',
+      'reminderNeedHygiene': 'Kakailanganin ni {name} ng banayad na spa day '
+          'kapag nababagay sa iyo.',
+      'reminderNeedSleep': 'Naghahanap si {name} ng maaliwalas na tulugan.',
     },
   };
 

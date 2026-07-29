@@ -64,6 +64,39 @@ void main() {
     }
   });
 
+  group('ReminderStrings (localizable per-need copy)', () {
+    test('English default names the need and interpolates the cat name', () {
+      final out = buildGentleReminders(
+        enabled: true,
+        isMinor: false,
+        cats: const [CatNeedSnapshot(catName: 'Milo', lowNeed: 'hunger')],
+      );
+      expect(out.single.body, contains('Milo'));
+      expect(out.single.body.toLowerCase(), contains('snack'));
+    });
+
+    test('a supplied (e.g. localized) string table is used verbatim', () {
+      const fil = ReminderStrings(
+        hunger: 'Gustong-gusto ni {name} ng kaunting meryenda.',
+        play: 'Gustong maglaro ni {name}.',
+        happiness: 'Ikatutuwa ni {name} ang kasama.',
+        hygiene: 'Kailangan ni {name} ng spa.',
+        sleep: 'Natutulog si {name}.',
+      );
+      final out = buildGentleReminders(
+        enabled: true,
+        isMinor: false,
+        cats: const [CatNeedSnapshot(catName: 'Luna', lowNeed: 'play')],
+        strings: fil,
+      );
+      expect(out.single.body, 'Gustong maglaro ni Luna.');
+    });
+
+    test('bodyFor returns null for an unknown need key', () {
+      expect(ReminderStrings.english.bodyFor('Milo', 'mystery'), isNull);
+    });
+  });
+
   group('nextReminderTimes (while-away scheduling)', () {
     test('before the hour: first is today at the hour, then daily', () {
       final now = DateTime(2026, 7, 22, 10);

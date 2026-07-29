@@ -150,6 +150,31 @@ class CareState {
     return 'Needy';
   }
 
+  /// The single need most wanting attention right now, or null when everything
+  /// is comfortably above [threshold]. Sleep is excluded on purpose — it
+  /// self-recovers while you're away, so it should never drive a reminder (this
+  /// mirrors [currentMood], which also ignores sleep). Ties resolve in a stable
+  /// order. Used by the gentle while-away reminders so the copy can name the
+  /// actual need ("a little snack", "in the mood to play") instead of a generic
+  /// nudge — never nags when the cat is content (returns null).
+  String? lowestNeed({int threshold = 45}) {
+    final needs = <String, int>{
+      'hunger': currentHunger,
+      'happiness': currentHappiness,
+      'hygiene': currentHygiene,
+      'play': currentPlay,
+    };
+    String? lowestKey;
+    var lowestValue = threshold;
+    needs.forEach((key, value) {
+      if (value < lowestValue) {
+        lowestValue = value;
+        lowestKey = key;
+      }
+    });
+    return lowestKey;
+  }
+
   /// A gentle "last cared for" label for the header.
   String get lastCaredLabel {
     final d = DateTime.now().difference(lastUpdated);
