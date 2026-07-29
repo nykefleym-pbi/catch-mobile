@@ -1,0 +1,175 @@
+/// A companion the player has caught — the CatDex's core entity.
+///
+/// Mirrors the `cats` row shape returned by both the `generate-companion` Edge
+/// Function and a direct `cats` select (see docs/architecture/06-data-model.md).
+class Cat {
+  const Cat({
+    required this.id,
+    required this.name,
+    this.spriteUrl,
+    this.traitId,
+    this.generationMeta = const {},
+    this.discoveredAt,
+    this.lat,
+    this.lng,
+    this.collarId,
+    this.tags = const [],
+  });
+
+  final String id;
+  final String name;
+  final String? spriteUrl;
+  final String? traitId;
+  final Map<String, dynamic> generationMeta;
+  final DateTime? discoveredAt;
+
+  /// The equipped cosmetic collar id (from `cats.cosmetic_collar`), or null for
+  /// no collar. Matches the client collar catalogue (features/wardrobe).
+  final String? collarId;
+
+  /// Coarse, privacy-fuzzed coordinates of where this cat was met (~110 m).
+  /// Null when the catch was made with location off. Used only for the map pin.
+  final double? lat;
+  final double? lng;
+
+  /// The player's own **private** free-text tags for this cat (from `cats.tags`).
+  /// Owner-only (inherits the `cats` RLS) and never shown to anyone else — a
+  /// personal way to organise the CatDex. Not a shared/social surface.
+  final List<String> tags;
+
+  /// Whether this cat can be dropped on the Explore map.
+  bool get hasLocation => lat != null && lng != null;
+
+  /// Matches a lower-cased CatDex search query against the name **or** any of the
+  /// player's private tags, so tags act as a personal filter.
+  bool matchesQuery(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    if (name.toLowerCase().contains(q)) return true;
+    return tags.any((t) => t.toLowerCase().contains(q));
+  }
+
+  /// Human-friendly trait label (e.g. 'foodie' -> 'Foodie'). Falls back to a
+  /// title-cased id for any trait added server-side we don't know about yet.
+  String? get traitLabel {
+    final id = traitId;
+    if (id == null) return null;
+    return _traitLabels[id] ?? (id.isEmpty ? null : _titleCase(id));
+  }
+
+  /// A short descriptive line pulled from generation metadata, if present.
+  String? get blurb {
+    final value = generationMeta['blurb'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// A characterful backstory for the reveal + detail pages. Prefers the
+  /// generated [blurb]; otherwise falls back to a warm, trait-flavoured line so
+  /// every cat — old or new — arrives with a little story of its own.
+  String get story {
+    final generated = blurb;
+    if (generated != null) return generated;
+    final trait = traitId;
+    if (trait != null && _traitStories.containsKey(trait)) {
+      return _traitStories[trait]!;
+    }
+    return 'A gentle wanderer who picked your neighbourhood to call home.';
+  }
+
+  factory Cat.fromMap(Map<String, dynamic> map) {
+    final rawMeta = map['generation_meta'];
+    final discovered = map['discovered_at'];
+    return Cat(
+      id: map['id'] as String,
+      name: (map['name'] as String?)?.trim().isNotEmpty == true
+          ? map['name'] as String
+          : 'Mystery Cat',
+      spriteUrl: map['sprite_url'] as String?,
+      traitId: map['trait_id'] as String?,
+      generationMeta:
+          rawMeta is Map ? Map<String, dynamic>.from(rawMeta) : const {},
+      discoveredAt: discovered is String ? DateTime.tryParse(discovered) : null,
+      lat: _toDouble(map['geo_lat']),
+      lng: _toDouble(map['geo_lng']),
+      collarId: map['cosmetic_collar'] as String?,
+      tags: _toStringList(map['tags']),
+    );
+  }
+}
+
+/// A Postgres `text[]` arrives as a [List]; coerce it to a clean `List<String>`,
+/// dropping blanks. Anything unexpected yields an empty list.
+List<String> _toStringList(dynamic value) {
+  if (value is List) {
+    return [
+      for (final item in value)
+        if (item is String && item.trim().isNotEmpty) item.trim(),
+    ];
+  }
+  return const [];
+}
+
+/// Numeric columns can arrive as [int], [double], or a string over the wire.
+double? _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+/// The set of personality trait ids the client knows about — the denominator
+/// for a "personalities collected" showcase stat. Kept in sync with
+/// [_traitLabels]; server-added traits still render (via [Cat.traitLabel]'s
+/// title-case fallback) and simply won't count toward this total until added.
+const List<String> kKnownTraitIds = [
+  'curious',
+  'brave',
+  'lazy',
+  'foodie',
+  'mischievous',
+  'elegant',
+  'playful',
+  'protective',
+  'explorer',
+  'shy',
+];
+
+const Map<String, String> _traitLabels = {
+  'curious': 'Curious',
+  'brave': 'Brave',
+  'lazy': 'Lazy',
+  'foodie': 'Foodie',
+  'mischievous': 'Mischievous',
+  'elegant': 'Elegant',
+  'playful': 'Playful',
+  'protective': 'Protective',
+  'explorer': 'Explorer',
+  'shy': 'Shy',
+};
+
+/// Warm, trait-flavoured backstories used when a cat has no generated blurb —
+/// so every companion still reads as a little character, not a blank card.
+const Map<String, String> _traitStories = {
+  'curious': 'Nose into everything, this one — every open door is a mystery '
+      'worth solving.',
+  'brave': 'Fears neither vacuum nor thunder; guards the windowsill like a '
+      'tiny, fearless knight.',
+  'lazy': 'A connoisseur of sunbeams and long afternoons, with a full-time '
+      'career in napping.',
+  'foodie': 'Believes every doorstep hides a snack, and greets each meal like '
+      'a small festival.',
+  'mischievous': 'Knocks pens off tables purely for science, then blinks at '
+      'you with total innocence.',
+  'elegant': 'Moves like poured cream and expects — quite reasonably — to be '
+      'admired.',
+  'playful': 'Would chase a leaf to the ends of the earth, then present it to '
+      'you as treasure.',
+  'protective': 'Keeps a careful eye on their people and their patch, always '
+      'the first to check on a noise.',
+  'explorer': 'Maps the whole neighbourhood one fence at a time, home only for '
+      'dinner and a debrief.',
+  'shy': 'Watches from beneath the sofa at first, but once you have won them '
+      'over, you have won a friend for life.',
+};
+
+String _titleCase(String value) =>
+    value[0].toUpperCase() + value.substring(1);

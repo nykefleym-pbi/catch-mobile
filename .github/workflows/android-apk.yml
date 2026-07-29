@@ -1,0 +1,141 @@
+name: Build Android APK
+
+# Produces an installable debug APK you can download and sideload on an Android
+# phone — no local Flutter/dev setup required. Runs on pushes to the working
+# branch and can also be triggered manually from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/catch-product-plan-80oy18
+
+jobs:
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # The android/ platform folder is not committed; generate it here without
+      # touching lib/, pubspec.yaml, or tests.
+      - name: Generate Android platform folder
+        run: flutter create . --org com.example --platforms=android
+
+      # The generated manifest has no runtime permissions. The capture flow needs
+      # the camera; the Explore map needs location. Declare both (camera hardware
+      # is marked optional so the app still installs on camera-less devices).
+      - name: Set app name + add camera/location permissions to manifest
+        run: |
+          manifest=android/app/src/main/AndroidManifest.xml
+          python3 - "$manifest" <<'PY'
+          import sys
+          path = sys.argv[1]
+          with open(path) as f:
+              src = f.read()
+          # Display name shown under the launcher icon / in App info. The generated
+          # manifest uses the Dart package name (catch_mobile); use the brand name.
+          assert 'android:label="catch_mobile"' in src, "label anchor not found"
+          src = src.replace(
+              'android:label="catch_mobile"', 'android:label="Cat-ch Mobile"', 1)
+          perms = (
+              '    <uses-permission android:name="android.permission.CAMERA" />\n'
+              '    <uses-feature android:name="android.hardware.camera" '
+              'android:required="false" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.ACCESS_FINE_LOCATION" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.ACCESS_COARSE_LOCATION" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.POST_NOTIFICATIONS" />\n'
+              '    <uses-permission '
+              'android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
+          )
+          anchor = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          assert anchor in src, "manifest anchor not found"
+          src = src.replace(anchor, anchor + "\n" + perms, 1)
+          with open(path, "w") as f:
+              f.write(src)
+          print("camera + location permissions added")
+          PY
+
+      # flutter_local_notifications uses java.time, so the app module needs
+      # Android core-library desugaring enabled. The android/ folder is
+      # generated fresh above, so patch its (Kotlin-DSL or Groovy) app build file
+      # to turn desugaring on and add the desugar_jdk_libs dependency.
+      - name: Enable core-library desugaring for local notifications
+        run: |
+          python3 - <<'PY'
+          import os
+          kts = 'android/app/build.gradle.kts'
+          groovy = 'android/app/build.gradle'
+          path = kts if os.path.exists(kts) else groovy
+          with open(path) as f:
+              src = f.read()
+          if 'CoreLibraryDesugaring' in src or 'coreLibraryDesugaring' in src:
+              print('desugaring already present; nothing to do')
+          elif path.endswith('.kts'):
+              assert 'compileOptions {' in src, 'compileOptions block not found (kts)'
+              src = src.replace(
+                  'compileOptions {',
+                  'compileOptions {\n        isCoreLibraryDesugaringEnabled = true',
+                  1)
+              src += (
+                  '\ndependencies {\n'
+                  '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n'
+                  '}\n')
+              with open(path, 'w') as f:
+                  f.write(src)
+              print('desugaring enabled (kts)')
+          else:
+              assert 'compileOptions {' in src, 'compileOptions block not found (groovy)'
+              src = src.replace(
+                  'compileOptions {',
+                  'compileOptions {\n        coreLibraryDesugaringEnabled true',
+                  1)
+              src += (
+                  '\ndependencies {\n'
+                  "    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n"
+                  '}\n')
+              with open(path, 'w') as f:
+                  f.write(src)
+              print('desugaring enabled (groovy)')
+          PY
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Generate the native launcher icon + launch splash from assets/branding/.
+      # These write into the just-created android/ folder (mipmaps, drawables,
+      # styles) and must run after `flutter create` + `flutter pub get`.
+      - name: Generate launcher icon + splash
+        run: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
+      - name: Build debug APK
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          flutter build apk --debug \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=LAUNCH_MARKETS=PH
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
