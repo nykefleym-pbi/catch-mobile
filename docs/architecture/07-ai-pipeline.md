@@ -88,6 +88,17 @@ guarantee:
   prompt/conditioning/model choice.
 - Every generated cat should still be **visually unique**.
 
+**Sprite consistency (shared style spec).** So the whole collection reads as one
+cohesive set no matter which backend drew it, the Edge Function centralizes the
+**medium-agnostic** parts of the prompt in one place (`SPRITE_FRAMING`,
+`SPRITE_FIDELITY`, and a shared `SPRITE_NEGATIVE` vocabulary): every provider
+composes the same pose + scale framing, the same "stay the real cat" fidelity
+constraints, and the same forbidden-artifact list, and keeps only its own
+medium/expression prefix (SD cartoon tags vs pixel-art vs the Gemini
+instruction). The shared negatives are a superset of each provider's prior list,
+so this only ever tightens what a sprite may drift into. Tune the shared look
+once, in the spec constants.
+
 **Provider (pluggable — free-first, [ADR 0001](../decisions/0001-image-generation.md)):**
 the Edge Function selects a backend at runtime via the `IMAGE_PROVIDER` env var,
 so the provider is swappable without a client change. When `IMAGE_PROVIDER` is

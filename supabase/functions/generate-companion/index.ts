@@ -82,6 +82,41 @@ const CF_VISION_MODEL =
 // an image). https://api.pixellab.ai/v1
 const PIXELLAB_BASE = "https://api.pixellab.ai/v1";
 
+// --- Canonical sprite style spec (item 9: sprite consistency) --------------
+//
+// One source of truth for the medium-agnostic parts of every companion sprite —
+// its FRAMING (pose + scale), its FIDELITY constraints (stay the real cat), and
+// the shared "never do this" NEGATIVE vocabulary. Each provider keeps only its
+// own medium/expression prefix (SD cartoon tags vs pixel-art vs Gemini
+// instruction) and composes the rest from these constants, so the whole
+// collection reads as one cohesive set — consistent pose, scale, and forbidden
+// artifacts — no matter which backend generated it, or if the backend changes.
+// Tune the shared look here, once.
+const SPRITE_FRAMING =
+  "full body, sitting, centered, facing viewer, at a consistent size that " +
+  "fills most of the frame, same scale every time";
+const SPRITE_FIDELITY =
+  "keep the cat's real natural fur colour and markings, and its real age and " +
+  "body build (a kitten stays small, a senior looks older, a chubby cat stays " +
+  "round, a slim cat stays slender), natural realistic cat colours";
+// Shared negative vocabulary: fantasy-colour drift, background artifacts,
+// duplicates/anatomy, and text/branding. Providers that take a negative prompt
+// join this list; Gemini folds the same intent into its instruction. Kept as a
+// superset of every provider's prior negatives so this only ever tightens.
+const SPRITE_NEGATIVE_TERMS: readonly string[] = [
+  "photorealistic", "realistic photo", "3d render", "painterly",
+  "semi-realistic", "hyperrealistic", "detailed fur texture",
+  "individual fur strands", "unnatural fur color", "neon colors", "purple fur",
+  "teal fur", "blue fur", "rainbow", "oversaturated", "fantasy creature",
+  "monster", "glow", "halo", "circle", "spotlight", "radial gradient",
+  "background pattern", "decorations", "stickers", "multiple animals",
+  "multiple cats", "two cats", "extra cats", "floating faces", "duplicate heads",
+  "extra heads", "human", "text", "letters", "watermark", "logo", "signature",
+  "frame", "border", "blurry", "grainy", "deformed", "extra limbs",
+  "extra tails", "low quality", "jpeg artifacts",
+];
+const SPRITE_NEGATIVE = SPRITE_NEGATIVE_TERMS.join(", ");
+
 interface GenerateRequest {
   imageBase64: string;
   mimeType?: string;
@@ -367,29 +402,20 @@ async function generateSpriteCloudflare(
   // prompt asks to preserve the real coat colour/markings and explicitly avoids
   // "vibrant/saturated" cues that make Stable Diffusion invent fantasy colours.
   // SD responds best to compact, comma-separated style tags.
+  // Medium/expression prefix (SD comma-tag style) + the shared framing +
+  // fidelity spec, so this sprite is framed and coloured like every other one.
   const prompt =
     "cute chibi cartoon cat, flat 2d storybook illustration, clean " +
     "creature-collector game sprite, thick soft outlines, flat matte cel " +
-    "shading, big friendly eyes, full body, sitting, centered, facing viewer, " +
-    "consistent size, same scale, filling most of the frame, keep the cat's " +
-    "real age and body build, keep the cat's real natural fur colour and " +
-    "markings, natural realistic cat colours, plain solid soft cream " +
-    "background, adorable, high quality";
+    "shading, big friendly eyes, adorable, high quality, " +
+    `${SPRITE_FRAMING}, ${SPRITE_FIDELITY}, plain solid soft cream background`;
   // Negatives do the heavy lifting: kill invented fantasy colours (Butter went
   // purple/teal, Gizmo lost its white), background glows/halos (Gizmo's circle),
   // and the earlier floating-face / duplicate artifacts. The photoreal/painterly
   // block pushes the output toward flat cartoon (Pebble came back semi-realistic)
   // WITHOUT raising img2img strength, which is what drifts the real cat's colour.
-  const negativePrompt =
-    "photorealistic, realistic photo, 3d render, painterly, semi-realistic, " +
-    "hyperrealistic, detailed fur texture, individual fur strands, " +
-    "unnatural fur color, neon colors, purple fur, teal fur, blue fur, rainbow, " +
-    "oversaturated, fantasy creature, monster, glow, halo, circle, spotlight, " +
-    "radial gradient, background pattern, decorations, stickers, multiple " +
-    "animals, two cats, extra cats, floating faces, duplicate heads, extra " +
-    "heads, text, letters, watermark, logo, signature, frame, border, " +
-    "blurry, grainy, deformed, extra limbs, extra tails, low quality, " +
-    "jpeg artifacts";
+  // Shared across providers so every sprite avoids the same failure modes.
+  const negativePrompt = SPRITE_NEGATIVE;
 
   // Prefer img2img so the sprite echoes the real cat's colours/markings. A LOWER
   // strength keeps it closer to the source photo (SD img2img: higher strength =
@@ -465,14 +491,13 @@ async function generateSpritePixellab(
   description: string,
 ): Promise<Uint8Array> {
   const subject = description.length > 0 ? description : "a cute cat";
-  // Keep the framing identical for every catch so sprites share one consistent
-  // size: full body, same scale, filling most of the frame. The description
-  // carries the cat's age and build (kitten/senior, slim/chubby) so the sprite
-  // inherits whether the real cat is young or old, chubby or thin.
+  // Pixel-art medium prefix + the shared framing spec, so every pixel sprite
+  // shares one consistent pose + scale. The description (subject) carries the
+  // cat's age and build (kitten/senior, slim/chubby) so the sprite inherits
+  // whether the real cat is young or old, chubby or thin.
   const prompt =
     `cute pixel art cat, ${subject}, adorable chibi game companion sprite, ` +
-    `sitting upright, front view, full body, centered, consistent size, ` +
-    `filling most of the frame, same scale, friendly big eyes`;
+    `friendly big eyes, ${SPRITE_FRAMING}`;
   const data = await fetchWithTimeout(
     `${PIXELLAB_BASE}/generate-image-pixflux`,
     {
@@ -484,9 +509,8 @@ async function generateSpritePixellab(
       body: JSON.stringify({
         description: prompt,
         image_size: { width: 128, height: 128 },
-        negative_description:
-          "blurry, realistic photo, deformed, extra limbs, text, watermark, " +
-          "multiple cats, human",
+        // Same forbidden-artifact list as the other providers.
+        negative_description: SPRITE_NEGATIVE,
         text_guidance_scale: 8.0,
         no_background: true,
       }),
@@ -554,17 +578,16 @@ async function generateSpriteGemini(
   imageBase64: string,
   mimeType: string,
 ): Promise<Uint8Array> {
+  // Gemini reads natural language; it still composes the shared fidelity +
+  // framing + negative spec so its sprites match the rest of the collection.
   const prompt =
     "Turn the cat in this photo into an adorable, cozy mobile-game companion " +
     "sprite. Keep it recognizably the SAME cat: preserve its coat colour, fur " +
-    "pattern, eye colour, ear and tail shape, any distinctive markings, and " +
-    "its apparent age and body build (a kitten stays small and a senior looks " +
-    "older; a chubby cat stays round and a slim cat stays slender). " +
+    "pattern, eye colour, ear and tail shape, any distinctive markings — " +
+    `${SPRITE_FIDELITY}. ` +
     "Style: soft, warm, hand-illustrated chibi with gentle cel shading and a " +
-    "friendly expression. Full body, sitting or standing, centered, facing the " +
-    "viewer, at a consistent size that fills most of the frame. Render on a " +
-    "fully transparent background. No text, no borders, no watermark, no drop " +
-    "shadow on the ground.";
+    `friendly expression. ${SPRITE_FRAMING}. Render on a fully transparent ` +
+    `background, no ground shadow. Avoid: ${SPRITE_NEGATIVE}.`;
 
   const data = await fetchWithTimeout(
     `${GEMINI_BASE}/${IMAGE_MODEL}:generateContent`,
