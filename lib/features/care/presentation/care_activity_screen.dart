@@ -257,6 +257,18 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
                           onDropAccept: _use,
                           onActionDone: () => _clearAction(_actionSeq),
                         ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            _caption,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         _ItemCard(
                           title: _itemQuestionFor(widget.kind, widget.name),
