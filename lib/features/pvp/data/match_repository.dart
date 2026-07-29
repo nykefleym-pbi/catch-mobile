@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/supabase/supabase_providers.dart';
 import '../../social/domain/safe_play.dart';
+import '../domain/cat_stats.dart';
+import '../domain/contest_resolution.dart';
 import '../domain/match.dart';
 import '../domain/match_outcome.dart';
 
@@ -64,6 +66,32 @@ class MatchRepository {
       'p_winner': winnerId,
     });
     return MatchOutcome.fromToken(result as String?);
+  }
+
+  /// Auto-resolve an accepted match from the two cats' derived [CatStats] and
+  /// record the computed result — no human picks the winner. The resolution is
+  /// deterministic and takes no purchase lever ([ContestResolver]), so the
+  /// contest is provably no-pay-to-win end to end. [challengerStats] belongs to
+  /// [Match.challengerId], [opponentStats] to [Match.opponentId]. Returns the
+  /// resolution alongside the RPC outcome so the caller can show an honest recap.
+  Future<({MatchOutcome outcome, ContestResolution resolution})> autoResolve(
+    Match match, {
+    required CatStats challengerStats,
+    required CatStats opponentStats,
+  }) async {
+    final mode = match.mode;
+    final resolution = ContestResolver.resolve(
+      mode ?? MatchMode.zoomies,
+      challenger: challengerStats,
+      opponent: opponentStats,
+    );
+    final winnerId = switch (resolution.winner) {
+      ContestParty.challenger => match.challengerId,
+      ContestParty.opponent => match.opponentId,
+      ContestParty.draw => null,
+    };
+    final outcome = await recordResult(match.id, winnerId);
+    return (outcome: outcome, resolution: resolution);
   }
 
   /// Open invites addressed to the caller (waiting on their answer). Empty while

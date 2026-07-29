@@ -58,11 +58,18 @@ age gate and a master switch that defaults off.**
    (additive RLS policy; cats are private by default). Coordinates are coarse by
    construction (ADR 0001) and `SafePlay.showcaseIsLocationSafe` guards it.
 
-5. **No pay-to-win, proven structurally.** `CatStats.derive` takes only care
-   wellbeing, bond, growth stage, and personality — there is **no item /
-   currency / purchase parameter anywhere in the signature**, and
+5. **No pay-to-win, proven structurally — including the result.** `CatStats.derive`
+   takes only care wellbeing, bond, growth stage, and personality — there is **no
+   item / currency / purchase parameter anywhere in the signature**, and
    `test/pvp/cat_stats_test.dart` guards it. A read-only "Play stats" preview
-   shows a cat's friendly-contest profile; contests themselves are not live.
+   shows a cat's friendly-contest profile. The contest **outcome** is now
+   computed the same way: `ContestResolver.resolve` (auto-resolve, replacing any
+   manual winner entry) decides a match **deterministically** from the two cats'
+   derived `CatStats` and the mode's governing stat — pure, symmetric, no
+   randomness, and again **no purchase lever in reach**, so the only way to sway a
+   result is caring for the cat. `set_match_result` still validates the winner is
+   one of the two players server-side; `test/pvp/contest_resolution_test.dart`
+   guards win/tiebreak/draw/symmetry. Live contests stay gated on `kSocialLive`.
 
 6. **Cosmetic-only, no-real-money trading.** `SafePlay.itemIsTradable` allows
    only `is_cosmetic` items and rejects any food/power/consumable/currency type.

@@ -1,24 +1,33 @@
 import 'package:flutter/foundation.dart';
 
+import 'cat_stats.dart';
+
 /// The four friendly contest modes, matching the `matches.mode` check constraint
 /// in migration 0012. Each is a gentle, no-harm game of play — never a battle,
 /// and the outcome is a keepsake, never a power reward (no pay-to-win).
 enum MatchMode {
   zoomies('zoomies', 'Zoomie race', '💨',
-      'A dash of happy chaos — who gets the zoomies fastest?'),
+      'A dash of happy chaos — who gets the zoomies fastest?', CatStat.speed),
   agility('agility', 'Agility course', '🤸',
-      'Weave and hop through a gentle obstacle course.'),
+      'Weave and hop through a gentle obstacle course.', CatStat.agility),
   treasure('treasure', 'Treasure hunt', '🔎',
-      'Sniff out hidden toys — curiosity leads the way.'),
-  toy('toy', 'Toy chase', '🧶', 'Chase the feather wand for pure joy.');
+      'Sniff out hidden toys — curiosity leads the way.', CatStat.curiosity),
+  toy('toy', 'Toy chase', '🧶', 'Chase the feather wand for pure joy.',
+      CatStat.energy);
 
-  const MatchMode(this.token, this.label, this.emoji, this.blurb);
+  const MatchMode(
+      this.token, this.label, this.emoji, this.blurb, this.governingStat);
 
   /// The stored token (`matches.mode`).
   final String token;
   final String label;
   final String emoji;
   final String blurb;
+
+  /// The single [CatStat] this contest is decided on — the playful skill the
+  /// event rewards. This is the *only* lever on the result, and it comes purely
+  /// from care/bond/growth/personality (see [CatStats.derive]), never a purchase.
+  final CatStat governingStat;
 
   static MatchMode? fromToken(String? token) {
     for (final m in MatchMode.values) {
