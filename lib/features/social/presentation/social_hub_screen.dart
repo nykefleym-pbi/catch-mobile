@@ -16,6 +16,7 @@ import '../data/social_repository.dart';
 import '../domain/friend.dart';
 import 'albums_screen.dart';
 import 'clubs_screen.dart';
+import 'discovery_screen.dart';
 import 'trading_screen.dart';
 import 'visit_screen.dart';
 
@@ -195,6 +196,18 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen> {
           onChanged:
               (caps.canShowcaseToFriends && !limited) ? _setShowcase : null,
         ),
+        if (caps.canDiscover && !limited) ...[
+          const SizedBox(height: 20),
+          const _SectionLabel('MEET NEW KEEPERS'),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const DiscoveryScreen()),
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            child: const _DiscoverCard(),
+          ),
+        ],
         const SizedBox(height: 20),
         const _SectionLabel('COMING WHEN WE CAN HOST IT SAFELY'),
         const SizedBox(height: 8),
@@ -567,6 +580,46 @@ class _ShowcaseCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A live entry card for adults-only discovery (distinct from the "Soon"
+/// coming-soon cards — this surface is live for eligible adults).
+class _DiscoverCard extends StatelessWidget {
+  const _DiscoverCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Card(
+      child: Row(
+        children: [
+          Icon(Icons.travel_explore_outlined, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Discover cat-keepers',
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  'Adults only, opt-in. Meet other keepers by their code — no '
+                  'names, no location ever shared, reporting built in.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
         ],
       ),
     );

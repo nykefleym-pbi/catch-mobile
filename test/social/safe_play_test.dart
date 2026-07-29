@@ -69,6 +69,32 @@ void main() {
     });
   });
 
+  group('SafePlay.discoveryAllowed — adults only, live only', () {
+    test('an adult may discover only when live social is on', () {
+      expect(
+        SafePlay.discoveryAllowed(
+            SocialCapabilities.forBracket(AgeBracket.adult, socialLive: true)),
+        isTrue,
+      );
+      expect(
+        SafePlay.discoveryAllowed(
+            SocialCapabilities.forBracket(AgeBracket.adult, socialLive: false)),
+        isFalse,
+      );
+    });
+
+    test('a minor may never discover, even with live social on', () {
+      for (final b in [AgeBracket.teen, AgeBracket.under13, AgeBracket.unknown]) {
+        expect(
+          SafePlay.discoveryAllowed(
+              SocialCapabilities.forBracket(b, socialLive: true)),
+          isFalse,
+          reason: '$b must never reach adults-only discovery',
+        );
+      }
+    });
+  });
+
   group('SafePlay messaging — canned reactions only, no free text', () {
     test('a canned reaction is allowed', () {
       expect(SafePlay.isAllowedMessage(SafePlay.kSafeReactions.first), isTrue);

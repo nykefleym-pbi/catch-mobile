@@ -91,6 +91,12 @@ class SafePlay {
   }) =>
       caps.canUseSocial && otherIsFriend;
 
+  /// Whether the player may use adults-only cat-keeper discovery — the one
+  /// surface that reaches beyond a known friend code. Allowed only for an adult
+  /// while live social is on (the [SocialCapabilities.canDiscover] gate); a minor
+  /// is never surfaced to, or shown, a stranger (08-ethics §Minors; ADR 0004).
+  static bool discoveryAllowed(SocialCapabilities caps) => caps.canDiscover;
+
   /// Whether the given text is an allowed message (i.e. one of the canned
   /// reactions). Free-text always fails — the guard rejects anything not in the
   /// fixed vocabulary.

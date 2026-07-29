@@ -53,6 +53,7 @@ class SocialCapabilities {
     required this.canShowcaseToFriends,
     required this.canTrade,
     required this.canCompete,
+    required this.canDiscover,
   });
 
   /// The whole social hub is available.
@@ -70,12 +71,19 @@ class SocialCapabilities {
   /// May take part in friendly, no-harm contests (also gated by the switch).
   final bool canCompete;
 
+  /// May browse + appear in the **adults-only, opt-in** cat-keeper discovery
+  /// pool (also gated by the master switch). Never for minors: discovery is the
+  /// one surface that reaches beyond a known friend code, so it stays 18+ only —
+  /// a minor is never surfaced to, or shown, a stranger (ADR 0004; docs/08).
+  final bool canDiscover;
+
   static const SocialCapabilities none = SocialCapabilities(
     canUseSocial: false,
     canAddFriends: false,
     canShowcaseToFriends: false,
     canTrade: false,
     canCompete: false,
+    canDiscover: false,
   );
 
   /// [socialLive] is the master switch for live trading / contests; it defaults
@@ -92,6 +100,7 @@ class SocialCapabilities {
           canShowcaseToFriends: true,
           canTrade: socialLive,
           canCompete: socialLive,
+          canDiscover: socialLive, // adults only, and only when live
         );
       case AgeBracket.teen:
         return SocialCapabilities(
@@ -100,6 +109,7 @@ class SocialCapabilities {
           canShowcaseToFriends: false, // minors: showcase forced private
           canTrade: false,
           canCompete: socialLive,
+          canDiscover: false, // discovery is 18+ only — never a minor
         );
       case AgeBracket.under13:
       case AgeBracket.unknown:

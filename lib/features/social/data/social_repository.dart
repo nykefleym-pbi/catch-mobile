@@ -62,6 +62,17 @@ class SocialRepository {
   Future<void> setShowcaseToFriends(bool value) =>
       _mergeSettings({'showcase_to_friends': value});
 
+  /// Whether the player has opted into adults-only cat-keeper discovery. Off by
+  /// default; the server (`discovery_eligible`) is the real gate and only ever
+  /// treats an adult as eligible, regardless of this local flag.
+  Future<bool> discoveryOptIn() async {
+    final settings = await _settings();
+    return settings['discovery_opt_in'] == true;
+  }
+
+  Future<void> setDiscoveryOptIn(bool value) =>
+      _mergeSettings({'discovery_opt_in': value});
+
   // --- Friend graph (via RPCs + RLS-guarded updates) ------------------------
 
   /// Returns a status token: ok / not_found / self / blocked / exists /

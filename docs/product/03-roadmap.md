@@ -85,7 +85,9 @@ worth returning to.
 
 The **safety foundation** for this phase (age gate + reduced-data minor mode,
 report/block substrate, friends-only graph, opt-in showcase, structural
-no-pay-to-win stats, cosmetic-only trading rules) is designed in
+no-pay-to-win stats, cosmetic-only trading rules, and an adults-only opt-in
+discovery pool that exposes only a friend code + cat count — never a public
+directory) is designed in
 [ADR 0004](../decisions/0004-phase3-social-safety.md); live matchmaking/trading
 stay gated off until moderation + realtime are ready.
 

@@ -252,6 +252,36 @@ Two changes make this a considered flip rather than a naked toggle:
 - **Launch market:** the APK builds with `LAUNCH_MARKETS=PH`, so the geo-gate
   limits live social to the Philippines (unknown region fails closed).
 
+### Follow-up (2026-07-29) — adults-only, opt-in cat-keeper discovery
+
+Discovery is the one social surface that reaches **beyond an already-known friend
+code**. Rather than a public directory (which would surface strangers to minors
+and break the child-safety spine), it is deliberately the narrowest possible
+version of "meet someone new":
+
+- **Adults-only on both sides, mutual opt-in.** A profile appears only when
+  `age_bracket = 'adult'` AND `settings.discovery_opt_in`; browsing requires the
+  same, so no minor is ever shown to — or shown — a stranger, and nobody lurks
+  the pool without joining it. Client gate: `SocialCapabilities.canDiscover`
+  (adult ∧ live) + `SafePlay.discoveryAllowed`; server gate: `discovery_eligible`
+  re-checks the band + flag as the definer, so the client cannot widen it.
+- **Data-minimised.** `list_discovery_profiles` (migration 0022, SECURITY
+  DEFINER) returns only a rotatable friend code + an aggregate cat count — no
+  name, no email, no location of any precision, no free text (no un-moderated
+  stranger-authored copy), and **never the cats themselves** (the showcase stays
+  friends-only, migration 0014).
+- **No new write path.** Connecting via `discovery_add` adds the adults-only
+  eligibility check, then delegates to `friend_request_by_code`, so every
+  existing anti-abuse cap (hourly/daily/pending velocity, moderation gate, block
+  + dedup) applies unchanged. Connecting still sends a normal friend request the
+  other party accepts/declines — discovery is friends-first, not an open channel.
+- **Block-aware + report on every row.** The pool excludes blocked parties
+  (either direction), existing/pending ties, and banned accounts; each card
+  routes through the shared report/block sheet.
+- **Master-switch + geo-gated.** Like trading/contests, it stays behind
+  `kSocialLive` and the launch-market geo-gate; while off the screen shows an
+  honest "coming when we can host it safely" state, never a simulated pool.
+
 Still genuinely owed (not client code): a **staffed** moderator, and a true
 two-client UI end-to-end pass on a live backend (the swap + match lifecycle are
 verified server-side and at the domain seam respectively).
