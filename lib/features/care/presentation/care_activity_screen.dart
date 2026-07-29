@@ -44,14 +44,20 @@ class CareActivityItem {
   final String? caption;
 }
 
-/// A tactile, drop-to-care mini-game shared by Feed, Play, and Groom. Drag an
-/// item onto the cat (or tap it) and a bespoke little animation plays on the
-/// sprite — food is nibbled away with crumbs, a toy wiggles amid a burst of
-/// hearts, bubbles foam up and pop into a clean shine. A semicircular gauge
-/// shows where the cat is. When you finish, the session is persisted once: the
-/// gauge becomes the relevant need, the bond deepens, and the gentle
-/// side-effects apply — always floored so a cat is never left worse off
-/// (welfare-wins). Care is cosmetic + kind, never power.
+// Warm gauge palette — the same "not-great → lovely" sweep reads for every
+// activity (Hungry→Full, Sad→Happy, Dirty→Clean).
+const _gaugeLow = Color(0xFFE8703A);
+const _gaugeMid = Color(0xFFF2B950);
+const _gaugeHigh = Color(0xFF67A860);
+
+/// A cozy, tactile care mini-game shared by Feed, Play, and Groom. Drag an item
+/// onto the cat (or tap it) and a bespoke animation plays on the sprite — food
+/// is nibbled away with crumbs, a toy wiggles amid a burst of hearts, bubbles
+/// foam up and pop into a clean shine. A gradient gauge shows where the cat is.
+/// On finish the session persists once: the gauge becomes the relevant need,
+/// the bond deepens, and the gentle side-effects apply — always floored so a
+/// cat is never left worse off (welfare-wins). Care is cosmetic + kind, never
+/// power.
 class CareActivityScreen extends ConsumerStatefulWidget {
   const CareActivityScreen({
     required this.kind,
@@ -94,6 +100,9 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
   CareActivityItem? _active;
   int _actionSeq = 0;
 
+  /// The best (highest-gain) item — gets the little crown.
+  late final String? _bestId;
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +112,11 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
       duration: const Duration(milliseconds: 520),
     );
     _caption = _promptFor(widget.kind, widget.name);
+    _bestId = widget.items.isEmpty
+        ? null
+        : widget.items
+            .reduce((a, b) => b.gain > a.gain ? b : a)
+            .id;
   }
 
   @override
@@ -148,9 +162,9 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
     }
   }
 
-  /// Leave the mini-game safely. Flip [_leaving] first so [PopScope.canPop] is
-  /// already true by the time we pop — the pop is never re-intercepted (this is
-  /// what previously crashed) — persist while still mounted, then pop once.
+  /// Leave safely. Flip [_leaving] first so [PopScope.canPop] is already true by
+  /// the time we pop — the pop is never re-intercepted (this previously
+  /// crashed) — persist while still mounted, then pop exactly once.
   Future<void> _finish() async {
     if (_leaving) return;
     setState(() => _leaving = true);
@@ -163,7 +177,11 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
-    final color = _colorFor(widget.kind, theme);
+    final accent = _accentFor(widget.kind, theme);
+    final zones = _zonesFor(widget.kind);
+    final v = (_gauge / 100).clamp(0.0, 1.0);
+    final zoneWord = v < 1 / 3 ? zones[0] : (v < 2 / 3 ? zones[1] : zones[2]);
+
     return PopScope(
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) {
@@ -176,127 +194,93 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: isLight
-                  ? const [Color(0xFFFBE3CD), Color(0xFFF7D9BC)]
+                  ? const [Color(0xFFFDEAD6), Color(0xFFF7D9BC)]
                   : const [Color(0xFF3C332B), Color(0xFF201A16)],
             ),
           ),
           child: SafeArea(
             child: Column(
               children: [
+                // Header.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _RoundBack(onTap: _finish),
-                      const SizedBox(width: 8),
-                      Text(
-                        _titleFor(widget.kind),
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _titleFor(widget.kind),
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              _subtitleFor(widget.kind),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                  child: _Gauge(
-                    value: _gauge / 100,
-                    color: color,
-                    zones: _zonesFor(widget.kind),
-                  ),
-                ),
+                // Scrollable body (fits without scrolling on tall screens; the
+                // scroll view only kicks in on small ones, so nothing overflows).
                 Expanded(
-                  child: DragTarget<CareActivityItem>(
-                    onWillAcceptWithDetails: (_) => true,
-                    onAcceptWithDetails: (d) => _use(d.data),
-                    builder: (context, candidate, __) {
-                      final hovering = candidate.isNotEmpty;
-                      return Center(
-                        child: AnimatedScale(
-                          scale: hovering ? 1.06 : 1,
-                          duration: const Duration(milliseconds: 160),
-                          child: FittedBox(
-                            fit: BoxFit.contain,
-                            child: SizedBox(
-                            width: 240,
-                            height: 240,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                AnimatedBuilder(
-                                  animation: _nudge,
-                                  builder: (context, child) {
-                                    final a = math.sin(
-                                            _nudge.value * math.pi * 2) *
-                                        0.04;
-                                    return Transform.rotate(
-                                        angle: a, child: child);
-                                  },
-                                  child: _Sprite(spriteUrl: widget.spriteUrl),
-                                ),
-                                if (_active != null)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: _ConsumeOverlay(
-                                        key: ValueKey(_actionSeq),
-                                        kind: widget.kind,
-                                        item: _active!,
-                                        accent: color,
-                                        onDone: () => _clearAction(_actionSeq),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Column(
+                      children: [
+                        _GaugeCard(
+                          value: v,
+                          zoneWord: zoneWord,
+                          lowWord: zones[0],
+                          highWord: zones[2],
+                          accent: accent,
                         ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _caption,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.4,
+                        const SizedBox(height: 12),
+                        _StageRow(
+                          spriteUrl: widget.spriteUrl,
+                          nudge: _nudge,
+                          active: _active,
+                          actionSeq: _actionSeq,
+                          accent: accent,
+                          kind: widget.kind,
+                          tip: _sideNoteFor(widget.kind),
+                          onDropAccept: _use,
+                          onActionDone: () => _clearAction(_actionSeq),
+                        ),
+                        const SizedBox(height: 8),
+                        _ItemCard(
+                          title: _itemQuestionFor(widget.kind, widget.name),
+                          items: widget.items,
+                          bestId: _bestId,
+                          accent: accent,
+                          onUse: _use,
+                        ),
+                        const SizedBox(height: 12),
+                        _LoveCard(
+                          title: _loveTitleFor(widget.kind),
+                          text: _loveTextFor(widget.kind, widget.name),
+                          accent: accent,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                // Pinned CTA.
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final item in widget.items)
-                        _ItemChip(item: item, onTap: _use),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 6),
-                  child: Text(
-                    _sideNoteFor(widget.kind),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 14),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _finish,
-                      child: Text(_bond > 0 ? 'All done' : 'Maybe later'),
-                    ),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: _CtaButton(
+                    label: _bond > 0 ? 'All done!' : 'Maybe later',
+                    onTap: _finish,
                   ),
                 ),
               ],
@@ -307,10 +291,18 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
     );
   }
 
+  // --- Per-kind copy ------------------------------------------------------
+
   static String _titleFor(CareActivityKind k) => switch (k) {
         CareActivityKind.feed => 'Feeding time',
         CareActivityKind.play => 'Playtime',
         CareActivityKind.groom => 'Spa day',
+      };
+
+  static String _subtitleFor(CareActivityKind k) => switch (k) {
+        CareActivityKind.feed => 'A happy cat is a healthy cat! 🐾',
+        CareActivityKind.play => 'Time to pounce and play! 🐾',
+        CareActivityKind.groom => 'Fresh, fluffy, and pampered! 🐾',
       };
 
   /// The three gauge-zone labels (low → mid → high) for each activity.
@@ -332,6 +324,13 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
         CareActivityKind.groom => 'Squeaky clean and gleaming! ✨',
       };
 
+  static String _itemQuestionFor(CareActivityKind k, String name) =>
+      switch (k) {
+        CareActivityKind.feed => 'What will you feed $name?',
+        CareActivityKind.play => 'Pick a toy for $name!',
+        CareActivityKind.groom => 'How will you pamper $name?',
+      };
+
   static String _sideNoteFor(CareActivityKind k) => switch (k) {
         CareActivityKind.feed =>
           'A good meal costs a little tidiness and leaves a sleepier cat.',
@@ -341,128 +340,725 @@ class _CareActivityScreenState extends ConsumerState<CareActivityScreen>
           'A bath is tiring, and most cats only just tolerate it.',
       };
 
-  static Color _colorFor(CareActivityKind k, ThemeData theme) => switch (k) {
+  static String _loveTitleFor(CareActivityKind k) => switch (k) {
+        CareActivityKind.feed => 'Feeding with love',
+        CareActivityKind.play => 'Playing with love',
+        CareActivityKind.groom => 'Grooming with love',
+      };
+
+  static String _loveTextFor(CareActivityKind k, String name) => switch (k) {
+        CareActivityKind.feed =>
+          'Regular, balanced meals keep $name healthy, active and full of joy!',
+        CareActivityKind.play =>
+          'Play keeps $name sharp, happy, and bonded to you!',
+        CareActivityKind.groom =>
+          'A gentle clean keeps $name fresh, comfy, and cared for!',
+      };
+
+  static Color _accentFor(CareActivityKind k, ThemeData theme) => switch (k) {
         CareActivityKind.feed => AppTheme.terracotta,
         CareActivityKind.play => AppTheme.apricot,
         CareActivityKind.groom => theme.colorScheme.tertiary,
       };
 }
 
-// --- Gauge -----------------------------------------------------------------
+// --- Cards -----------------------------------------------------------------
 
-/// A semicircular gauge with three labelled zones (low / mid / high) and a
-/// needle at the current value. Reads as "Hungry → Content → Full" etc.
-class _Gauge extends StatelessWidget {
-  const _Gauge({
-    required this.value,
-    required this.color,
-    required this.zones,
-  });
+/// A soft, rounded cream panel — the shared card chrome for this screen.
+class _Panel extends StatelessWidget {
+  const _Panel({required this.child, this.padding});
 
-  final double value; // 0..1
-  final Color color;
-  final List<String> zones;
+  final Widget child;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final v = value.clamp(0.0, 1.0);
-    final activeZone = v < 1 / 3 ? 0 : (v < 2 / 3 ? 1 : 2);
-    final track = theme.colorScheme.onSurface.withValues(alpha: 0.12);
-    return SizedBox(
-      width: 220,
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 6),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      child: child,
+    );
+  }
+}
+
+// --- Gauge -----------------------------------------------------------------
+
+/// The gradient-arc gauge card: an orange→green scale with a heart marker at
+/// the cat's current level, a zone pill, emoji end-labels, and a % read-out.
+class _GaugeCard extends StatelessWidget {
+  const _GaugeCard({
+    required this.value,
+    required this.zoneWord,
+    required this.lowWord,
+    required this.highWord,
+    required this.accent,
+  });
+
+  final double value; // 0..1
+  final String zoneWord;
+  final String lowWord;
+  final String highWord;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Panel(
       child: Column(
-      children: [
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: v),
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeOut,
-          builder: (context, t, __) => CustomPaint(
-            size: const Size(220, 116),
-            painter: _GaugePainter(value: t, color: color, track: track),
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOut,
+            builder: (context, v, __) => _Arc(value: v, zoneWord: zoneWord),
           ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            for (var i = 0; i < zones.length; i++)
-              Expanded(
-                child: Text(
-                  zones[i],
-                  textAlign: i == 0
-                      ? TextAlign.left
-                      : (i == zones.length - 1
-                          ? TextAlign.right
-                          : TextAlign.center),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight:
-                        i == activeZone ? FontWeight.w800 : FontWeight.w500,
-                    color: i == activeZone
-                        ? color
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.sentiment_dissatisfied_rounded,
+                  color: _gaugeLow, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                lowWord,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: _gaugeLow,
                 ),
               ),
-          ],
-        ),
-      ],
+              const Spacer(),
+              Text(
+                highWord,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: _gaugeHigh,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.sentiment_satisfied_alt_rounded,
+                  color: _gaugeHigh, size: 20),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOut,
+            builder: (context, v, __) => _Slider(value: v, accent: accent),
+          ),
+          const SizedBox(height: 6),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: '${(value * 100).round()}% ',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: _gaugeHigh,
+                ),
+              ),
+              TextSpan(
+                text: highWord,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ]),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _GaugePainter extends CustomPainter {
-  _GaugePainter({
-    required this.value,
-    required this.color,
+class _Arc extends StatelessWidget {
+  const _Arc({required this.value, required this.zoneWord});
+
+  final double value; // 0..1
+  final String zoneWord;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = math.min(constraints.maxWidth, 300.0);
+        final h = w * 0.52 + 8;
+        final center = Offset(w / 2, h - 8);
+        final radius = w / 2 - 16;
+        final ang = math.pi + math.pi * value.clamp(0.0, 1.0);
+        final mx = center.dx + math.cos(ang) * radius;
+        final my = center.dy + math.sin(ang) * radius;
+        return SizedBox(
+          width: w,
+          height: h,
+          child: Stack(
+            children: [
+              CustomPaint(
+                size: Size(w, h),
+                painter: _ArcPainter(
+                  center: center,
+                  radius: radius,
+                  track: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+                ),
+              ),
+              // Zone pill, tucked under the apex.
+              Positioned(
+                left: 0,
+                right: 0,
+                top: h * 0.44,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: AppTheme.cardShadow(theme.brightness),
+                    ),
+                    child: Text(
+                      zoneWord,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: _gaugeMid,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Heart marker riding the arc.
+              Positioned(
+                left: mx - 15,
+                top: my - 15,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: AppTheme.cardShadow(theme.brightness),
+                  ),
+                  child: const Icon(Icons.favorite,
+                      color: Color(0xFFE86A6A), size: 16),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ArcPainter extends CustomPainter {
+  _ArcPainter({
+    required this.center,
+    required this.radius,
     required this.track,
   });
 
-  final double value; // 0..1
-  final Color color;
+  final Offset center;
+  final double radius;
   final Color track;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 16.0;
-    final center = Offset(size.width / 2, size.height - 2);
-    final radius = math.min(size.width / 2, size.height) - stroke / 2 - 2;
+    const stroke = 22.0;
     final rect = Rect.fromCircle(center: center, radius: radius);
-
+    // Track (a touch wider, softer) behind the gradient.
     final base = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
+      ..strokeWidth = stroke + 6
       ..strokeCap = StrokeCap.round
       ..color = track;
-    // Top semicircle: pi (left) sweeping +pi (clockwise, y-down) to 2pi (right).
     canvas.drawArc(rect, math.pi, math.pi, false, base);
 
-    final fill = Paint()
+    final grad = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..color = color;
-    canvas.drawArc(rect, math.pi, math.pi * value.clamp(0.0, 1.0), false, fill);
-
-    // Needle.
-    final ang = math.pi + math.pi * value.clamp(0.0, 1.0);
-    final tip = Offset(
-      center.dx + math.cos(ang) * (radius - 2),
-      center.dy + math.sin(ang) * (radius - 2),
-    );
-    final needle = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(center, tip, needle);
-    canvas.drawCircle(center, 6, Paint()..color = color);
-    canvas.drawCircle(
-        center, 3, Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.9));
+      ..shader = const SweepGradient(
+        startAngle: math.pi,
+        endAngle: 2 * math.pi,
+        colors: [_gaugeLow, _gaugeMid, _gaugeHigh],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(rect);
+    canvas.drawArc(rect, math.pi, math.pi, false, grad);
   }
 
   @override
-  bool shouldRepaint(_GaugePainter old) =>
-      old.value != value || old.color != color || old.track != track;
+  bool shouldRepaint(_ArcPainter old) =>
+      old.center != center || old.radius != radius || old.track != track;
+}
+
+class _Slider extends StatelessWidget {
+  const _Slider({required this.value, required this.accent});
+
+  final double value; // 0..1
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final v = value.clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        const knob = 18.0;
+        final fillW = (w * v).clamp(0.0, w);
+        final knobLeft = (w * v - knob / 2).clamp(0.0, w - knob);
+        return SizedBox(
+          height: knob,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Container(
+                height: 8,
+                width: fillW,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Positioned(
+                left: knobLeft,
+                child: Container(
+                  width: knob,
+                  height: knob,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: accent, width: 3),
+                    boxShadow: AppTheme.cardShadow(theme.brightness),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// --- Stage (sprite + drop target + tip) ------------------------------------
+
+class _StageRow extends StatelessWidget {
+  const _StageRow({
+    required this.spriteUrl,
+    required this.nudge,
+    required this.active,
+    required this.actionSeq,
+    required this.accent,
+    required this.kind,
+    required this.tip,
+    required this.onDropAccept,
+    required this.onActionDone,
+  });
+
+  final String? spriteUrl;
+  final AnimationController nudge;
+  final CareActivityItem? active;
+  final int actionSeq;
+  final Color accent;
+  final CareActivityKind kind;
+  final String tip;
+  final ValueChanged<CareActivityItem> onDropAccept;
+  final VoidCallback onActionDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 210,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          DragTarget<CareActivityItem>(
+            onWillAcceptWithDetails: (_) => true,
+            onAcceptWithDetails: (d) => onDropAccept(d.data),
+            builder: (context, candidate, __) {
+              final hovering = candidate.isNotEmpty;
+              return AnimatedScale(
+                scale: hovering ? 1.06 : 1,
+                duration: const Duration(milliseconds: 160),
+                child: SizedBox(
+                  width: 210,
+                  height: 210,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AnimatedBuilder(
+                        animation: nudge,
+                        builder: (context, child) {
+                          final a = math.sin(nudge.value * math.pi * 2) * 0.04;
+                          return Transform.rotate(angle: a, child: child);
+                        },
+                        child: _Sprite(spriteUrl: spriteUrl),
+                      ),
+                      if (active != null)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: _ConsumeOverlay(
+                              key: ValueKey(actionSeq),
+                              kind: kind,
+                              item: active!,
+                              accent: accent,
+                              onDone: onActionDone,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          // Tip bubble, tucked to the right.
+          Positioned(
+            right: 0,
+            top: 24,
+            child: _TipCard(text: tip),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipCard extends StatelessWidget {
+  const _TipCard({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 132,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lightbulb_outline_rounded,
+                  color: AppTheme.sage, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                'Tip',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.sage,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Item card + tiles -----------------------------------------------------
+
+class _ItemCard extends StatelessWidget {
+  const _ItemCard({
+    required this.title,
+    required this.items,
+    required this.bestId,
+    required this.accent,
+    required this.onUse,
+  });
+
+  final String title;
+  final List<CareActivityItem> items;
+  final String? bestId;
+  final Color accent;
+  final ValueChanged<CareActivityItem> onUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Panel(
+      child: Column(
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 12,
+            children: [
+              for (final item in items)
+                _ItemTile(
+                  item: item,
+                  best: item.id == bestId,
+                  accent: accent,
+                  onTap: onUse,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemTile extends StatelessWidget {
+  const _ItemTile({
+    required this.item,
+    required this.best,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final CareActivityItem item;
+  final bool best;
+  final Color accent;
+  final ValueChanged<CareActivityItem> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tile = SizedBox(
+      width: 86,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                  border: Border.all(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                  ),
+                  boxShadow: AppTheme.cardShadow(theme.brightness),
+                ),
+                child: AppAssetImage(item.asset, size: 48),
+              ),
+              if (best)
+                const Positioned(
+                  top: -8,
+                  right: -6,
+                  child: _CrownBadge(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '+${item.gain}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                const Icon(Icons.favorite, size: 11, color: Color(0xFFE86A6A)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return Draggable<CareActivityItem>(
+      data: item,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Transform.translate(
+        offset: const Offset(-34, -34),
+        child: AppAssetImage(item.asset, size: 68),
+      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: tile),
+      child: GestureDetector(
+        onTap: () => onTap(item),
+        behavior: HitTestBehavior.opaque,
+        child: tile,
+      ),
+    );
+  }
+}
+
+class _CrownBadge extends StatelessWidget {
+  const _CrownBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF2B950),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: const Icon(Icons.workspace_premium_rounded,
+          size: 14, color: Colors.white),
+    );
+  }
+}
+
+// --- Love footer card ------------------------------------------------------
+
+class _LoveCard extends StatelessWidget {
+  const _LoveCard({
+    required this.title,
+    required this.text,
+    required this.accent,
+  });
+
+  final String title;
+  final String text;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _Panel(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.volunteer_activism_rounded,
+                color: accent, size: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  text,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- CTA -------------------------------------------------------------------
+
+class _CtaButton extends StatelessWidget {
+  const _CtaButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.apricot, AppTheme.terracotta],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: AppTheme.cardShadow(theme.brightness),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.favorite_border_rounded,
+                    color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // --- Consume overlays ------------------------------------------------------
@@ -516,9 +1112,9 @@ class _ConsumeOverlayState extends State<_ConsumeOverlay>
         for (var i = 0; i < 8; i++)
           _Bit(
             fromLeft: i.isEven,
-            x: 40 + _rng.nextDouble() * 30,
-            y: 70 + _rng.nextDouble() * 30,
-            fall: 60 + _rng.nextDouble() * 70,
+            x: 34 + _rng.nextDouble() * 26,
+            y: 60 + _rng.nextDouble() * 26,
+            fall: 55 + _rng.nextDouble() * 60,
             size: 6 + _rng.nextDouble() * 5,
             delay: 0.1 + _rng.nextDouble() * 0.5,
           ),
@@ -528,26 +1124,28 @@ class _ConsumeOverlayState extends State<_ConsumeOverlay>
         for (var i = 0; i < 7; i++)
           _Heart(
             angle: -math.pi / 2 + (_rng.nextDouble() - 0.5) * 2.2,
-            dist: 70 + _rng.nextDouble() * 40,
+            dist: 60 + _rng.nextDouble() * 36,
             delay: _rng.nextDouble() * 0.4,
-            size: 20 + _rng.nextDouble() * 12,
+            size: 18 + _rng.nextDouble() * 12,
           ),
       ];
 
-  // A 4x4 jittered grid so the whole 240-box sprite is covered.
+  // A 4x4 jittered grid so the whole sprite box is covered.
   List<_Bubble> _makeBubbles() {
     final out = <_Bubble>[];
     const cols = 4, rows = 4;
-    const box = 200.0, origin = 20.0;
+    const box = 176.0, origin = 17.0;
     var order = 0;
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {
-        final cx = origin + (c + 0.5) * (box / cols) + (_rng.nextDouble() - 0.5) * 14;
-        final cy = origin + (r + 0.5) * (box / rows) + (_rng.nextDouble() - 0.5) * 14;
+        final cx =
+            origin + (c + 0.5) * (box / cols) + (_rng.nextDouble() - 0.5) * 12;
+        final cy =
+            origin + (r + 0.5) * (box / rows) + (_rng.nextDouble() - 0.5) * 12;
         out.add(_Bubble(
           cx: cx,
           cy: cy,
-          r: 18 + _rng.nextDouble() * 8,
+          r: 16 + _rng.nextDouble() * 7,
           popAt: 0.18 + (order / (cols * rows)) * 0.6,
         ));
         order++;
@@ -584,13 +1182,13 @@ class _ConsumeOverlayState extends State<_ConsumeOverlay>
         Align(
           alignment: Alignment.topCenter,
           child: Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: 4),
             child: Align(
               alignment: Alignment.bottomCenter,
               heightFactor: (1 - t).clamp(0.05, 1.0),
               child: Opacity(
                 opacity: (1 - t * 0.25).clamp(0.0, 1.0),
-                child: AppAssetImage(widget.item.asset, size: 64),
+                child: AppAssetImage(widget.item.asset, size: 58),
               ),
             ),
           ),
@@ -618,12 +1216,12 @@ class _ConsumeOverlayState extends State<_ConsumeOverlay>
         Align(
           alignment: Alignment.topCenter,
           child: Padding(
-            padding: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.only(top: 4),
             child: Transform.rotate(
               angle: wiggle,
               child: Opacity(
                 opacity: toyOpacity,
-                child: AppAssetImage(widget.item.asset, size: 60),
+                child: AppAssetImage(widget.item.asset, size: 54),
               ),
             ),
           ),
@@ -678,10 +1276,10 @@ class _ConsumeOverlayState extends State<_ConsumeOverlay>
             ),
           ),
         if (shine > 0) ...[
-          _sparkle(const Offset(-46, -30), shine, 24),
-          _sparkle(const Offset(50, -14), shine, 20),
-          _sparkle(const Offset(6, 40), shine, 26),
-          _sparkle(const Offset(-30, 44), shine, 18),
+          _sparkle(const Offset(-42, -28), shine, 22),
+          _sparkle(const Offset(44, -12), shine, 18),
+          _sparkle(const Offset(6, 36), shine, 24),
+          _sparkle(const Offset(-26, 40), shine, 16),
         ],
       ],
     );
@@ -743,7 +1341,7 @@ class _BitsPainter extends CustomPainter {
       paint.color = color.withValues(alpha: (1 - local).clamp(0.0, 1.0));
       final center = Offset(cx, cy);
       if (liquid) {
-        // A round teardrop-ish drop.
+        // A round drop.
         canvas.drawCircle(center, b.size / 2, paint);
       } else {
         // A crumb: a semicircle (half disk).
@@ -822,7 +1420,6 @@ class _BubblesPainter extends CustomPainter {
         ..strokeWidth = 1.5
         ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.7 * alpha);
       canvas.drawCircle(center, radius, rim);
-      // A little highlight.
       canvas.drawCircle(
         center.translate(-radius * 0.3, -radius * 0.3),
         radius * 0.18,
@@ -835,61 +1432,7 @@ class _BubblesPainter extends CustomPainter {
   bool shouldRepaint(_BubblesPainter old) => old.progress != progress;
 }
 
-// --- Item chip -------------------------------------------------------------
-
-class _ItemChip extends StatelessWidget {
-  const _ItemChip({required this.item, required this.onTap});
-
-  final CareActivityItem item;
-  final ValueChanged<CareActivityItem> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tile = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            boxShadow: AppTheme.cardShadow(theme.brightness),
-          ),
-          child: AppAssetImage(item.asset, size: 38),
-        ),
-        const SizedBox(height: 3),
-        SizedBox(
-          width: 62,
-          child: Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.labelSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
-    );
-    return Draggable<CareActivityItem>(
-      data: item,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: Transform.translate(
-        offset: const Offset(-32, -32),
-        child: AppAssetImage(item.asset, size: 64),
-      ),
-      childWhenDragging: Opacity(opacity: 0.35, child: tile),
-      child: GestureDetector(
-        onTap: () => onTap(item),
-        behavior: HitTestBehavior.opaque,
-        child: tile,
-      ),
-    );
-  }
-}
+// --- Sprite + back button --------------------------------------------------
 
 class _Sprite extends StatelessWidget {
   const _Sprite({required this.spriteUrl});
@@ -904,8 +1447,8 @@ class _Sprite extends StatelessWidget {
     }
     return Image.network(
       spriteUrl!,
-      width: 200,
-      height: 200,
+      width: 180,
+      height: 180,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.none,
       loadingBuilder: (context, child, progress) =>
@@ -925,14 +1468,15 @@ class _RoundBack extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.85),
-      borderRadius: BorderRadius.circular(16),
+      color: theme.colorScheme.surface.withValues(alpha: 0.9),
+      shape: const CircleBorder(),
+      elevation: 1,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: 46,
+          height: 46,
           child: Icon(
             Icons.arrow_back_ios_new,
             size: 18,
