@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../care/data/care_repository.dart';
 import '../../care/domain/care_state.dart';
@@ -214,10 +215,16 @@ class _NookScreenState extends ConsumerState<NookScreen> {
                                 child: Center(
                                   child: Transform.rotate(
                                     angle: p.rot * math.pi / 2,
-                                    child: Text(
-                                      decorById(p.itemId)?.emoji ?? '❓',
-                                      style: const TextStyle(fontSize: 40),
-                                    ),
+                                    child: () {
+                                      final d = decorById(p.itemId);
+                                      return d?.asset != null
+                                          ? AppAssetImage(d!.asset!, size: 52)
+                                          : Text(
+                                              d?.emoji ?? '❓',
+                                              style:
+                                                  const TextStyle(fontSize: 40),
+                                            );
+                                    }(),
                                   ),
                                 ),
                               ),
@@ -295,7 +302,9 @@ class _PaletteChip extends StatelessWidget {
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     )
-                  : Text(item.emoji, style: const TextStyle(fontSize: 26)),
+                  : (item.asset != null
+                      ? AppAssetImage(item.asset!, size: 40)
+                      : Text(item.emoji, style: const TextStyle(fontSize: 26))),
             ),
             const SizedBox(height: 4),
             Text(

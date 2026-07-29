@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../nook/domain/decor.dart';
 import '../../wardrobe/domain/collar.dart';
@@ -65,6 +66,7 @@ class SeasonalScreen extends StatelessWidget {
                     label: item.label,
                     unlockLabel: item.unlockLabel,
                     accent: event.accent,
+                    asset: item.asset,
                   ),
                 ),
               const SizedBox(height: 12),
@@ -136,12 +138,14 @@ class _FeaturedTile extends StatelessWidget {
     required this.label,
     required this.unlockLabel,
     required this.accent,
+    this.asset,
   });
 
   final String emoji;
   final String label;
   final String unlockLabel;
   final Color accent;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +167,9 @@ class _FeaturedTile extends StatelessWidget {
               color: accent.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
-            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            child: asset != null
+                ? AppAssetImage(asset!, size: 38)
+                : Text(emoji, style: const TextStyle(fontSize: 24)),
           ),
           const SizedBox(width: 14),
           Expanded(

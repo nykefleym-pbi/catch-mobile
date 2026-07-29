@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -74,6 +75,7 @@ class _CozyNavBar extends StatelessWidget {
                     child: _NavItem(
                       icon: Icons.map_outlined,
                       activeIcon: Icons.map,
+                      asset: AppAssets.map,
                       label: 'Explore',
                       selected: index == 0,
                       onTap: () => onSelect(0),
@@ -83,6 +85,7 @@ class _CozyNavBar extends StatelessWidget {
                     child: _NavItem(
                       icon: Icons.grid_view_outlined,
                       activeIcon: Icons.grid_view_rounded,
+                      asset: AppAssets.catDex,
                       label: 'CatDex',
                       selected: index == 1,
                       onTap: () => onSelect(1),
@@ -94,6 +97,7 @@ class _CozyNavBar extends StatelessWidget {
                     child: _NavItem(
                       icon: Icons.person_outline,
                       activeIcon: Icons.person,
+                      asset: AppAssets.guardian,
                       label: 'Guardian',
                       selected: index == 2,
                       onTap: () => onSelect(2),
@@ -123,6 +127,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.asset,
   });
 
   final IconData icon;
@@ -130,6 +135,11 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Optional illustrated destination mark. The colourful art can't be tinted,
+  /// so selection reads through full opacity + the label colour, and unselected
+  /// tabs are gently dimmed.
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +154,13 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(selected ? activeIcon : icon, size: 24, color: color),
+            if (asset != null)
+              Opacity(
+                opacity: selected ? 1 : 0.55,
+                child: AppAssetImage(asset!, size: 26),
+              )
+            else
+              Icon(selected ? activeIcon : icon, size: 24, color: color),
             const SizedBox(height: 4),
             Text(
               label,

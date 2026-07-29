@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
@@ -199,7 +200,8 @@ class _ProfileHeader extends StatelessWidget {
             color: AppTheme.peach,
             border: Border.all(color: AppTheme.apricot, width: 3),
           ),
-          child: const Icon(Icons.pets, size: 36, color: AppTheme.terracotta),
+          alignment: Alignment.center,
+          child: const AppAssetImage(AppAssets.paw, size: 44),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -363,15 +365,25 @@ class _JourneyCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                TextSpan(children: [
-                  const TextSpan(
-                    text: 'Your journey so far — ',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppAssetImage(AppAssets.guardian, size: 34),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        const TextSpan(
+                          text: 'Your journey so far — ',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        TextSpan(text: text),
+                      ]),
+                      style:
+                          theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                    ),
                   ),
-                  TextSpan(text: text),
-                ]),
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                ],
               ),
               if (onTap != null) ...[
                 const SizedBox(height: 10),

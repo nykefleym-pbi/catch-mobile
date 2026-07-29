@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/analytics/analytics_event.dart';
 import '../../../core/analytics/analytics_service.dart';
+import '../../../core/assets/app_assets.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/generation/generation_client.dart';
@@ -309,6 +310,8 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              AppAssetImage(AppAssets.cameraArt, size: 96),
+              SizedBox(height: 16),
               CircularProgressIndicator(),
               SizedBox(height: 16),
               Text('Warming up the camera…',

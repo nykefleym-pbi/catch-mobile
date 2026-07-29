@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../data/diary_repository.dart';
 import '../domain/diary_entry.dart';
 
@@ -53,7 +54,13 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     final theme = Theme.of(context);
     final entries = ref.watch(catDiaryProvider(widget.catId));
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.catName}\'s diary')),
+      appBar: AppBar(
+        title: Text('${widget.catName}\'s diary'),
+        leading: const Padding(
+          padding: EdgeInsets.all(10),
+          child: AppAssetImage(AppAssets.catStory, size: 28),
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [

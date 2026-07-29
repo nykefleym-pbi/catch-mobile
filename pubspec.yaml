@@ -75,6 +75,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/
+    - assets/art/UI/
+    - assets/art/Camera Type/
+    - assets/art/Cat Items/
 
 # App launcher icon — the Cat-ch cat-face badge. Generated into the native
 # mipmaps by `dart run flutter_launcher_icons` (CI step); the source art is the

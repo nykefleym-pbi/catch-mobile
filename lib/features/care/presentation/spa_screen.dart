@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/care_repository.dart';
 
@@ -154,26 +155,26 @@ class _SpaScreenState extends ConsumerState<SpaScreen>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _ToolButton(
-                      icon: Icons.brush_outlined,
-                      label: 'Brush',
+                      asset: AppAssets.shampoo,
+                      label: 'Wash',
                       onTap: () =>
-                          _useTool("Slow strokes — she's purring ♥", '✨'),
+                          _useTool("Sudsy and warm — she's purring ♥", '🫧'),
                     ),
                     _ToolButton(
-                      icon: Icons.water_drop_outlined,
+                      asset: AppAssets.soap,
                       label: 'Bathe',
                       onTap: () => _useTool('All squeaky clean 🫧', '💧'),
                     ),
                     _ToolButton(
-                      icon: Icons.content_cut,
+                      asset: AppAssets.nailClipper,
                       label: 'Claws',
                       onTap: () =>
                           _useTool('A tiny manicure — so dignified', '✨'),
                     ),
                     _ToolButton(
-                      icon: Icons.hearing_outlined,
-                      label: 'Ears',
-                      onTap: () => _useTool('Ears all tidy now', '✨'),
+                      asset: AppAssets.toothbrush,
+                      label: 'Teeth',
+                      onTap: () => _useTool('Fresh minty smile ✨', '✨'),
                     ),
                   ],
                 ),
@@ -223,12 +224,12 @@ class _SpaSprite extends StatelessWidget {
 
 class _ToolButton extends StatelessWidget {
   const _ToolButton({
-    required this.icon,
+    required this.asset,
     required this.label,
     required this.onTap,
   });
 
-  final IconData icon;
+  final String asset;
   final String label;
   final VoidCallback onTap;
 
@@ -250,7 +251,7 @@ class _ToolButton extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: AppTheme.cardShadow(theme.brightness),
             ),
-            child: Icon(icon, color: theme.colorScheme.tertiary, size: 26),
+            child: AppAssetImage(asset, size: 36),
           ),
           const SizedBox(height: 6),
           Text(

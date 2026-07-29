@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/assets/app_assets.dart';
+
 /// A piece of decor the player can place in a cat's nook. Decor is cosmetic
 /// only — never power — and unlocks with the bond you build with that cat
 /// (docs/product/04-game-systems.md).
@@ -11,11 +13,15 @@ class DecorItem {
     required this.emoji,
     required this.unlockIndex,
     required this.unlockLabel,
+    this.asset,
   });
 
   final String id;
   final String label;
   final String emoji;
+
+  /// Optional illustrated art ([AppAssets] path); [emoji] is the fallback.
+  final String? asset;
 
   /// Bond-level index (see [Bond]) at which this decor unlocks.
   final int unlockIndex;
@@ -32,6 +38,7 @@ const List<DecorItem> kDecor = [
     emoji: '🛏️',
     unlockIndex: 0,
     unlockLabel: 'the start',
+    asset: AppAssets.catBed,
   ),
   DecorItem(
     id: 'bowl',
@@ -39,13 +46,15 @@ const List<DecorItem> kDecor = [
     emoji: '🥣',
     unlockIndex: 0,
     unlockLabel: 'the start',
+    asset: AppAssets.foodBowl,
   ),
   DecorItem(
     id: 'plant',
-    label: 'Plant',
+    label: 'Cat grass',
     emoji: '🪴',
     unlockIndex: 1,
     unlockLabel: 'Familiar',
+    asset: AppAssets.catGrass,
   ),
   DecorItem(
     id: 'yarn',
@@ -53,6 +62,57 @@ const List<DecorItem> kDecor = [
     emoji: '🧶',
     unlockIndex: 1,
     unlockLabel: 'Familiar',
+    asset: AppAssets.ballOfYarn,
+  ),
+  // Illustrated furniture (from the Cat Items art set), bond-gated like the
+  // rest — cosmetic only, never power.
+  DecorItem(
+    id: 'scratch_post',
+    label: 'Scratch post',
+    emoji: '🪵',
+    unlockIndex: 1,
+    unlockLabel: 'Familiar',
+    asset: AppAssets.scratchPost,
+  ),
+  DecorItem(
+    id: 'water_fountain',
+    label: 'Water fountain',
+    emoji: '⛲',
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+    asset: AppAssets.waterFountain,
+  ),
+  DecorItem(
+    id: 'cat_tunnel',
+    label: 'Tunnel',
+    emoji: '🕳️',
+    unlockIndex: 2,
+    unlockLabel: 'Buddy',
+    asset: AppAssets.catTunnel,
+  ),
+  DecorItem(
+    id: 'cat_house',
+    label: 'Cat house',
+    emoji: '🏠',
+    unlockIndex: 3,
+    unlockLabel: 'Pal',
+    asset: AppAssets.catHouse,
+  ),
+  DecorItem(
+    id: 'hammock',
+    label: 'Hammock',
+    emoji: '🛌',
+    unlockIndex: 4,
+    unlockLabel: 'Close Friend',
+    asset: AppAssets.hangingHammock,
+  ),
+  DecorItem(
+    id: 'cat_tree',
+    label: 'Cat tree',
+    emoji: '🌳',
+    unlockIndex: 5,
+    unlockLabel: 'Best Friend',
+    asset: AppAssets.catTree,
   ),
   DecorItem(
     id: 'window',

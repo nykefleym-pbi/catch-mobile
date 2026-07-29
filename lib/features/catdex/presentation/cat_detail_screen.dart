@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../academy/domain/care_lesson.dart';
 import '../../academy/domain/care_moment.dart';
@@ -1062,7 +1063,9 @@ class _TreatSheet extends StatelessWidget {
           ),
           for (final treat in kTreats)
             ListTile(
-              leading: Text(treat.emoji, style: const TextStyle(fontSize: 28)),
+              leading: treat.asset != null
+                  ? AppAssetImage(treat.asset!, size: 40)
+                  : Text(treat.emoji, style: const TextStyle(fontSize: 28)),
               title: Text(treat.label,
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w500)),

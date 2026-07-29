@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/guardian_profile.dart';
 
@@ -107,10 +108,18 @@ class _CurrentRankCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            profile.rankLabel,
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              const AppAssetImage(AppAssets.guardian, size: 40),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  profile.rankLabel,
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           ClipRRect(
@@ -124,12 +133,20 @@ class _CurrentRankCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            nextLine,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              const AppAssetImage(AppAssets.experience, size: 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  nextLine,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

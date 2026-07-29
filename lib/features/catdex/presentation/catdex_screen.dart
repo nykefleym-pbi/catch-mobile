@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/assets/app_assets.dart';
 import '../../../core/config/env.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
@@ -93,9 +94,10 @@ class _CatDexBodyState extends ConsumerState<_CatDexBody> {
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const AppAssetImage(AppAssets.catDex, size: 30),
+              const SizedBox(width: 8),
               Text('CatDex',
                   style: theme.textTheme.headlineMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
