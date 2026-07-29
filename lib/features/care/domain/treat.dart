@@ -35,6 +35,14 @@ class Treat {
 /// The v1 treat menu, ordered gentlest → most special.
 const List<Treat> kTreats = [
   Treat(
+    id: 'milk',
+    label: 'Milk',
+    emoji: '🥛',
+    bond: 1,
+    happiness: 3,
+    asset: AppAssets.milk,
+  ),
+  Treat(
     id: 'chicken',
     label: 'Kibbles',
     emoji: '🍗',

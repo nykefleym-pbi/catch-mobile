@@ -103,6 +103,7 @@ class AppAssets {
   static const cannedFood = '$_items/Canned Food.webp';
   static const catnip = '$_items/Catnip.webp';
   static const treats = '$_items/Treats.webp';
+  static const milk = '$_items/Milk.webp';
   static const catBed = '$_items/Cat Bed.webp';
   static const foodBowl = '$_items/Food Bowl.webp';
   static const catGrass = '$_items/Cat Grass.webp';
